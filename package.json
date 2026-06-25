@@ -1,0 +1,32 @@
+{
+  "name": "teachersign",
+  "private": true,
+  "version": "3.1.0",
+  "type": "module",
+  "homepage": "https://skonT151216.github.io/teachersign",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "build:single": "npx cross-env SINGLE_FILE=true vite build && powershell -ExecutionPolicy ByPass -Command \"if (Test-Path dist\\index.html) { Move-Item dist\\index.html portable-teachersign.html -Force }\""
+  },
+  "dependencies": {
+    "autoprefixer": "^10.4.27",
+    "esbuild": "^0.27.3",
+    "html2pdf.js": "^0.14.0",
+    "postcss": "^8.5.8",
+    "react": "^19.2.1",
+    "react-dom": "^19.2.1",
+    "tailwindcss": "^4.2.1",
+    "uuid": "^13.0.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.2.1",
+    "@types/node": "^22.14.0",
+    "@vitejs/plugin-react": "^5.0.0",
+    "gh-pages": "^6.3.0",
+    "typescript": "~5.8.2",
+    "vite": "^6.2.0",
+    "vite-plugin-singlefile": "^2.3.0"
+  }
+}
