@@ -29,13 +29,11 @@ const UpdateModal: React.FC<UpdateModalProps> = ({ show, appVersion, onClose }) 
                     </ol>
                     <div className="space-y-2">
                         <p className="font-bold text-gray-800">업데이트 내용</p>
-                        <p>• 교직원은 종전처럼 별도 로그인 없이 QR로 접속해 한 번만 서명합니다.</p>
-                        <p>• 공유 링크에서는 관리자 기능과 다른 사람의 서명 이미지를 볼 수 없습니다.</p>
-                        <p>• 행사 수정·삭제·전체 자료 조회는 관리자 연결키가 있는 담당자 기기에서만 가능합니다.</p>
-                        <p>• 같은 서명을 다시 전송해도 중복 행이 생기지 않고 최신 서명으로 교체됩니다.</p>
-                        <p>• 연동 테스트가 웹앱·서버 버전·저장소·관리자 권한을 단계별로 알려줍니다.</p>
+                        <p>• 관리자 설정 기능의 보안성을 강화했습니다.</p>
+                        <p>• 서명 전송 과정에서 간헐적으로 발생하던 문제를 해결했습니다.</p>
+                        <p>• 구글 드라이브 연동 테스트의 문제를 해결하고 오류 안내를 개선했습니다.</p>
                     </div>
-                    <p className="text-xs text-gray-500">학교마다 기존처럼 자신의 Google 계정에 Apps Script를 배포하고 자료를 보관합니다. 관리자 연결키는 QR에 포함되지 않습니다.</p>
+                    <p className="text-xs text-gray-500">교직원의 서명 방식은 기존과 같습니다. 별도 로그인 없이 QR로 접속해 서명할 수 있습니다.</p>
                 </div>
 
                 <div className="flex flex-col gap-2">
