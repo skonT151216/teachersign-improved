@@ -11,21 +11,31 @@ const UpdateModal: React.FC<UpdateModalProps> = ({ show, appVersion, onClose }) 
 
     return (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[300] p-4 backdrop-blur-sm">
-            <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl animate-pop-in relative border-4 border-blue-100">
+            <div className="bg-white rounded-2xl p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-2xl animate-pop-in relative border-4 border-blue-100">
                 <div className="absolute top-0 right-0 bg-red-500 text-white font-bold px-3 py-1 rounded-bl-xl rounded-tr-xl text-sm animate-pulse">필독</div>
                 <h3 className="text-xl font-bold mb-4 text-gray-800 text-center">&lt;교직원 연수 등록부 {appVersion} 업데이트&gt;</h3>
 
-                <div className="bg-blue-50/70 p-4 rounded-xl mb-6 text-gray-700 text-[15px] leading-relaxed space-y-3 border border-blue-200 break-keep">
+                <div className="bg-blue-50/70 p-4 rounded-xl mb-6 text-gray-700 text-sm leading-relaxed space-y-4 border border-blue-200 break-keep">
                     <div>
-                        <span className="font-extrabold text-red-600 text-base block mb-0.5">1. 구글 Apps Script 코드를 3.1버전으로 업데이트 필수!</span>
-                        <span className="text-gray-500 text-xs">(구글 드라이브 연동 설정에서 Version 3.1 코드를 복사하여 구글 스크립트에 덮어쓰고 꼭 '새 배포' 해주세요. 서명을 별도 구글 시트에 저장하도록 바뀌어서, 동시에 여러 명이 서명해도 훨씬 빠르고 안정적으로 처리됩니다. ※ 3.0에서 서명자 이름/소속이 빈 값으로 저장되는 버그가 있었는데 3.1에서 수정되었고, 기존에 비어버린 이름도 자동으로 복구해서 보여줍니다. 배포 시 구글 시트 접근 권한 동의가 새로 뜰 수 있습니다.)</span>
+                        <span className="font-extrabold text-red-600 text-base block mb-1">기존 Google 연동 사용자는 서버 업데이트가 필요합니다.</span>
+                        <span className="text-gray-600">관리자 화면의 <strong>[구글 연동 설정]</strong>에서 아래 순서대로 진행하세요.</span>
                     </div>
-                    <div className="font-bold text-gray-800">
-                        2. 직위 순서 변경을 드래그 앤 드롭으로 간편하게! (화살표를 여러 번 누르지 않고, 항목을 끌어다 원하는 위치에 놓으면 순서가 바로 바뀝니다)
+                    <ol className="list-decimal list-inside space-y-2 bg-white p-3 rounded-lg border border-blue-100">
+                        <li>v4.0 Apps Script 코드를 복사해 기존 코드를 교체하고 저장</li>
+                        <li><strong>setupTeacherSign</strong> 함수를 한 번 실행해 관리자 연결키 발급</li>
+                        <li>[배포 관리]에서 <strong>새 버전</strong>으로 웹앱 배포</li>
+                        <li>웹앱 URL과 관리자 연결키를 입력하고 단계별 연동 테스트</li>
+                        <li>기존 QR 대신 관리자 화면에서 새 참여 링크·QR 공유</li>
+                    </ol>
+                    <div className="space-y-2">
+                        <p className="font-bold text-gray-800">업데이트 내용</p>
+                        <p>• 교직원은 종전처럼 별도 로그인 없이 QR로 접속해 한 번만 서명합니다.</p>
+                        <p>• 공유 링크에서는 관리자 기능과 다른 사람의 서명 이미지를 볼 수 없습니다.</p>
+                        <p>• 행사 수정·삭제·전체 자료 조회는 관리자 연결키가 있는 담당자 기기에서만 가능합니다.</p>
+                        <p>• 같은 서명을 다시 전송해도 중복 행이 생기지 않고 최신 서명으로 교체됩니다.</p>
+                        <p>• 연동 테스트가 웹앱·서버 버전·저장소·관리자 권한을 단계별로 알려줍니다.</p>
                     </div>
-                    <div className="font-bold text-gray-800">
-                        3. '부장급 묶어서 이동' 토글 추가 (켜면 부장 직위가 화살표/드래그 시 전체가 함께 이동, 끄면 부장 직위도 개별로 자유롭게 이동 가능)
-                    </div>
+                    <p className="text-xs text-gray-500">학교마다 기존처럼 자신의 Google 계정에 Apps Script를 배포하고 자료를 보관합니다. 관리자 연결키는 QR에 포함되지 않습니다.</p>
                 </div>
 
                 <div className="flex flex-col gap-2">

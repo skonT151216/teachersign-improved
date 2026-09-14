@@ -75,7 +75,7 @@ const PrintReport: React.FC<PrintReportProps> = ({ session, staffList, onClose, 
                 dept: staff.department,
                 name: staff.name,
                 affiliation: staff.affiliation,
-                signature: session.signatures.find(s => s.staffName === staff.name && s.department === staff.department),
+                signature: session.signatures.find(s => s.staffId === staff.id),
                 originalIndex: index
             }));
         } else {

@@ -37,6 +37,10 @@ export interface TrainingSession {
   createdAt: number;
   parentGrades?: string[]; // Optional dropdown options for grade
   parentClasses?: string[]; // Optional dropdown options for class
+  participantToken?: string; // Share-link token; only returned to administrators
+  relatedSessionTitles?: string[]; // Sessions covered by one participant signature
+  authRequired?: boolean; // Participant view metadata; authCode itself stays on the server
+  authVerified?: boolean;
 }
 
 export type ViewMode = 'landing' | 'admin' | 'signer' | 'report' | 'cloud_setup';
@@ -44,6 +48,7 @@ export type ViewMode = 'landing' | 'admin' | 'signer' | 'report' | 'cloud_setup'
 export interface CloudConfig {
   enabled: boolean;
   scriptUrl: string;
+  adminKey?: string;
 }
 
 declare module 'html2pdf.js';

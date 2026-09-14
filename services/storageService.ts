@@ -39,11 +39,10 @@ export const addSignatureToSession = (sessionId: string, signature: Signature): 
   
   const session = sessions[sessionIndex];
   
-  // Check if already signed based on name and department to handle cross-session ID mismatches
-  const alreadySigned = session.signatures.some(s => s.staffName === signature.staffName && s.department === signature.department);
+  // staffId is stable for roster members and deterministic for manual/parent entries.
+  const alreadySigned = session.signatures.some(s => s.staffId === signature.staffId);
   if (alreadySigned) {
-    // Update existing signature
-    session.signatures = session.signatures.map(s => (s.staffName === signature.staffName && s.department === signature.department) ? signature : s);
+    session.signatures = session.signatures.map(s => s.staffId === signature.staffId ? signature : s);
   } else {
     if (session.signatures.length >= session.maxParticipants) {
       return false; // Full

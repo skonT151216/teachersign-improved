@@ -112,7 +112,7 @@ const SignerView: React.FC<SignerViewProps> = (props) => {
         );
     }
 
-    if (session.authCode && !isSessionAuthenticated) {
+    if ((session.authRequired || session.authCode) && !isSessionAuthenticated) {
         return (
             <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
                 <div className="bg-white w-full max-w-md p-8 rounded-2xl shadow-xl animate-pop-in">
@@ -163,7 +163,7 @@ const SignerView: React.FC<SignerViewProps> = (props) => {
                 </div>
                 <div className="flex-1 overflow-y-auto p-4 space-y-3">
                     {filtered.map(staff => {
-                        const isSigned = session.signatures.some(sig => sig.staffName === staff.name && sig.department === staff.department);
+                        const isSigned = session.signatures.some(sig => sig.staffId === staff.id);
                         return (
                             <button key={staff.id} onClick={() => onSelectStaff(staff)} className={`w-full p-4 rounded-xl shadow-sm flex justify-between items-center transition-all active:scale-95 active:bg-gray-100 ${isSigned ? 'bg-green-50 border border-green-200' : 'bg-white border border-transparent'}`}>
                                 <div className="text-left flex-1 min-w-0">

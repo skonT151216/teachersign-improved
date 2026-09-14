@@ -2,10 +2,10 @@ import React, { useRef, useEffect, useState, useMemo } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { Staff, TrainingSession, ViewMode, Signature, CloudConfig, SessionType } from './types';
 import * as Storage from './services/storageService';
-import * as CloudService from './services/cloudService';
+import * as CloudService from './services/cloudServiceV4';
 import SignaturePad from './components/SignaturePad';
 import PrintReport from './components/PrintReport';
-import CloudSetup from './components/CloudSetup';
+import CloudSetup from './components/CloudSetupV4';
 import ConfirmModal, { ConfirmRequest } from './components/ConfirmModal';
 import UpdateModal from './components/UpdateModal';
 import EditTitleModal from './components/EditTitleModal';
@@ -52,6 +52,7 @@ const App: React.FC = () => {
 
     // Cloud Config
     const [cloudConfig, setCloudConfig] = useState<CloudConfig>({ enabled: false, scriptUrl: '' });
+    const [participantToken, setParticipantToken] = useState('');
     const [isLoading, setIsLoading] = useState(false);
 
     // Admin Create State
@@ -122,7 +123,7 @@ const App: React.FC = () => {
     const sessionFileInputRef = useRef<HTMLInputElement>(null);
     const [updatingSessionId, setUpdatingSessionId] = useState<string | null>(null);
 
-    const APP_VERSION = "v3.1";
+    const APP_VERSION = "v4.0";
     const [showUpdateModal, setShowUpdateModal] = useState(false);
 
     useEffect(() => {
@@ -133,26 +134,25 @@ const App: React.FC = () => {
             const params = new URLSearchParams(window.location.search);
             const urlSessionId = params.get('sessionId');
             const urlEndpoint = params.get('endpoint');
+            const urlParticipantToken = params.get('token') || '';
 
             if (urlSessionId) {
                 setIsLinkAccess(true);
                 setViewMode('signer');
                 setSelectedSessionId(urlSessionId);
+                setParticipantToken(urlParticipantToken);
 
                 if (urlEndpoint) {
                     const decodedUrl = decodeURIComponent(urlEndpoint);
                     const newCloud = { enabled: true, scriptUrl: decodedUrl };
                     setCloudConfig(newCloud);
-                    await loadSessions(true, decodedUrl);
-                } else {
-                    const savedCloud = localStorage.getItem('training_app_cloud_config');
-                    if (savedCloud) {
-                        const parsed = JSON.parse(savedCloud);
-                        setCloudConfig(parsed);
-                        await loadSessions(parsed.enabled, parsed.scriptUrl);
+                    if (urlParticipantToken) {
+                        await loadParticipantSession(decodedUrl, urlSessionId, urlParticipantToken);
                     } else {
-                        await loadSessions(false);
+                        setNotification({ msg: '[ERR-PARTICIPANT-LINK] 이전 버전의 참여 링크입니다. 담당자에게 새 QR을 요청하세요.', type: 'error' });
                     }
+                } else {
+                    await loadSessions(false);
                 }
             } else {
                 setIsLinkAccess(false);
@@ -160,7 +160,7 @@ const App: React.FC = () => {
                 if (savedCloud) {
                     const parsed = JSON.parse(savedCloud);
                     setCloudConfig(parsed);
-                    await loadSessions(parsed.enabled, parsed.scriptUrl);
+                    await loadSessions(parsed.enabled, parsed.scriptUrl, parsed.adminKey);
                 } else {
                     await loadSessions(false);
                 }
@@ -202,11 +202,12 @@ const App: React.FC = () => {
         setTimeout(() => setNotification(null), 3000);
     };
 
-    const loadSessions = async (isCloud: boolean, url?: string) => {
+    const loadSessions = async (isCloud: boolean, url?: string, adminKey?: string) => {
         setIsLoading(true);
         try {
             if (isCloud && url) {
-                const data = await CloudService.fetchCloudSessions(url);
+                if (!adminKey) throw new Error('[ERR-ADMIN-SETUP] v4.0 관리자 연결키를 설정해주세요.');
+                const data = await CloudService.fetchAdminSessions(url, adminKey);
                 setSessions(data);
                 return data;
             } else {
@@ -229,13 +230,28 @@ const App: React.FC = () => {
         }
     };
 
-    const handleCloudSetupSave = (url: string) => {
-        const newConfig = { enabled: true, scriptUrl: url };
+    const loadParticipantSession = async (url: string, sessionId: string, token: string, code = '') => {
+        setIsLoading(true);
+        try {
+            const session = await CloudService.fetchParticipantSession(url, sessionId, token, code);
+            setSessions([session]);
+            return session;
+        } catch (e: any) {
+            console.error(e);
+            showNotification(e.message || '[ERR-PARTICIPANT-LOAD] 연수 정보를 불러오지 못했습니다.', 'error');
+            return null;
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleCloudSetupSave = (url: string, adminKey: string) => {
+        const newConfig = { enabled: true, scriptUrl: url, adminKey };
         setCloudConfig(newConfig);
         localStorage.setItem('training_app_cloud_config', JSON.stringify(newConfig));
         setViewMode('admin');
         showNotification('구글 드라이브 연동 완료.', 'success');
-        loadSessions(true, url);
+        loadSessions(true, url, adminKey);
     };
 
     const handleCreateSession = async (e: React.FormEvent) => {
@@ -261,17 +277,18 @@ const App: React.FC = () => {
             staffList: newSessionType === 'school' ? [...globalStaffList] : [],
             signatures: [],
             createdAt: Date.now(),
+            participantToken: uuidv4().replace(/-/g, ''),
             parentGrades: newSessionType === 'parents' ? newParentGrades.split(',').map(s => s.trim()).filter(Boolean) : undefined,
             parentClasses: newSessionType === 'parents' ? newParentClasses.split(',').map(s => s.trim()).filter(Boolean) : undefined,
         };
 
         if (cloudConfig.enabled) {
             setIsLoading(true);
-            const success = await CloudService.createCloudSession(cloudConfig.scriptUrl, newSession);
+            const success = await CloudService.createCloudSession(cloudConfig.scriptUrl, cloudConfig.adminKey || '', newSession);
             setIsLoading(false);
             if (success) {
                 showNotification('연수가 구글 드라이브에 저장되었습니다.', 'success');
-                loadSessions(true, cloudConfig.scriptUrl);
+                loadSessions(true, cloudConfig.scriptUrl, cloudConfig.adminKey);
                 localStorage.setItem('training_app_last_school', newSchool);
             }
         } else {
@@ -299,9 +316,9 @@ const App: React.FC = () => {
         const updatedSession = { ...targetSession, title: editModeSession.title.trim() };
         setIsLoading(true);
         if (cloudConfig.enabled) {
-            const success = await CloudService.createCloudSession(cloudConfig.scriptUrl, updatedSession);
+            const success = await CloudService.createCloudSession(cloudConfig.scriptUrl, cloudConfig.adminKey || '', updatedSession);
             if (success) {
-                await loadSessions(true, cloudConfig.scriptUrl);
+                await loadSessions(true, cloudConfig.scriptUrl, cloudConfig.adminKey);
                 showNotification('연수 제목이 수정되었습니다.', 'success');
             } else {
                 showNotification('서버 오류로 변경에 실패했습니다.', 'error');
@@ -319,9 +336,9 @@ const App: React.FC = () => {
         const doDelete = async () => {
             if (cloudConfig.enabled) {
                 setIsLoading(true);
-                const success = await CloudService.deleteCloudSession(cloudConfig.scriptUrl, id);
+                const success = await CloudService.deleteCloudSession(cloudConfig.scriptUrl, cloudConfig.adminKey || '', id);
                 if (success) {
-                    await loadSessions(true, cloudConfig.scriptUrl);
+                    await loadSessions(true, cloudConfig.scriptUrl, cloudConfig.adminKey);
                     showNotification('연수가 삭제되었습니다.', 'success');
                 }
                 setIsLoading(false);
@@ -350,11 +367,11 @@ const App: React.FC = () => {
             if (cloudConfig.enabled) {
                 let successCount = 0;
                 for (const id of ids) {
-                    const success = await CloudService.deleteCloudSession(cloudConfig.scriptUrl, id);
+                    const success = await CloudService.deleteCloudSession(cloudConfig.scriptUrl, cloudConfig.adminKey || '', id);
                     if (success) successCount++;
                 }
                 if (successCount > 0) {
-                    await loadSessions(true, cloudConfig.scriptUrl);
+                    await loadSessions(true, cloudConfig.scriptUrl, cloudConfig.adminKey);
                     setSelectedAdminSessions(new Set());
                     showNotification(`총 ${successCount}개의 연수가 삭제되었습니다.`, 'success');
                 }
@@ -568,10 +585,10 @@ const App: React.FC = () => {
             const updatedSession = { ...session, staffList: updatedStaffList };
 
             if (cloudConfig.enabled) {
-                const success = await CloudService.createCloudSession(cloudConfig.scriptUrl, updatedSession);
+                const success = await CloudService.createCloudSession(cloudConfig.scriptUrl, cloudConfig.adminKey || '', updatedSession);
                 if (success) {
                     showNotification('연수 명단이 업데이트되었습니다.', 'success');
-                    await loadSessions(true, cloudConfig.scriptUrl);
+                    await loadSessions(true, cloudConfig.scriptUrl, cloudConfig.adminKey);
                 }
             } else {
                 Storage.saveSession(updatedSession);
@@ -590,7 +607,7 @@ const App: React.FC = () => {
     const handleSchoolStaffSelect = (staff: Staff) => {
         const session = sessions.find(s => s.id === selectedSessionId);
         if (!session) return;
-        const alreadySigned = session.signatures.some(sig => sig.staffName === staff.name && sig.department === staff.department);
+        const alreadySigned = session.signatures.some(sig => sig.staffId === staff.id);
         if (alreadySigned) {
             setConfirmRequest({
                 title: '이미 서명하셨습니다.',
@@ -614,7 +631,7 @@ const App: React.FC = () => {
             return;
         }
         const displayStaff: Staff = {
-            id: generateId(),
+            id: `office:${[manualInput.department, manualInput.position, manualInput.name].map(v => v.trim()).join('|')}`,
             name: manualInput.name,
             department: manualInput.position,
             affiliation: manualInput.department
@@ -630,7 +647,7 @@ const App: React.FC = () => {
             return;
         }
         const displayStaff: Staff = {
-            id: generateId(),
+            id: `parent:${[parentsInput.grade, parentsInput.classNumber, parentsInput.childName, parentsInput.parentName].map(v => v.trim()).join('|')}`,
             name: parentsInput.parentName,
             department: '학부모',
             grade: parentsInput.grade,
@@ -641,9 +658,21 @@ const App: React.FC = () => {
         setIsSigning(true);
     };
 
-    const handleAuthSubmit = (e: React.FormEvent) => {
+    const handleAuthSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         const session = sessions.find(s => s.id === selectedSessionId);
+
+        if (session && isLinkAccess && cloudConfig.enabled && selectedSessionId) {
+            const verifiedSession = await loadParticipantSession(cloudConfig.scriptUrl, selectedSessionId, participantToken, authInput);
+            if (verifiedSession?.authVerified) {
+                setIsSessionAuthenticated(true);
+                setAuthError(false);
+            } else {
+                setAuthError(true);
+            }
+            return;
+        }
+
         if (session && session.authCode === authInput) {
             setIsAuthModalOpen(false);
             if (pendingStaff) {
@@ -679,15 +708,25 @@ const App: React.FC = () => {
         };
 
         const targetDate = currentSession.date;
-        const targetSessions = sessions.filter(s => s.date === targetDate && s.type === currentSession.type);
+        const targetSessions = sessions.filter(s =>
+            s.date === targetDate
+            && s.type === currentSession.type
+            && (s.type !== 'school' || s.staffList.some(staff => staff.id === selectedStaff.id))
+        );
         const targetSessionIds = targetSessions.map(s => s.id);
 
         setIsLoading(true);
         if (cloudConfig.enabled) {
-            const success = await CloudService.addSignatureBatch(cloudConfig.scriptUrl, targetSessionIds, signature);
+            const success = isLinkAccess
+                ? await CloudService.sendParticipantSignature(cloudConfig.scriptUrl, currentSession.id, participantToken, authInput, signature)
+                : await CloudService.addSignatureBatch(cloudConfig.scriptUrl, cloudConfig.adminKey || '', targetSessionIds, signature);
             if (success) {
                 showNotification(`${selectedStaff.name}님 서명 전송 완료.`, 'success');
-                await loadSessions(true, cloudConfig.scriptUrl);
+                if (isLinkAccess) {
+                    await loadParticipantSession(cloudConfig.scriptUrl, currentSession.id, participantToken, authInput);
+                } else {
+                    await loadSessions(true, cloudConfig.scriptUrl, cloudConfig.adminKey);
+                }
             } else {
                 showNotification('[ERR-SAVE-01] 서명 전송 실패. 접속자가 많아 일시적으로 차단되었을 수 있습니다. 잠시 후 다시 "서명 완료"를 눌러주세요.', 'error');
                 setIsLoading(false);
@@ -726,8 +765,13 @@ const App: React.FC = () => {
         const deleteTargets = scope === 'all' ? relatedSessionIds : [targetSessionId];
 
         if (cloudConfig.enabled) {
-            await CloudService.removeSignatureBatch(cloudConfig.scriptUrl, deleteTargets, staffId);
-            await loadSessions(true, cloudConfig.scriptUrl);
+            const success = await CloudService.removeSignatureBatch(cloudConfig.scriptUrl, cloudConfig.adminKey || '', deleteTargets, staffId);
+            if (!success) {
+                setIsLoading(false);
+                showNotification('[ERR-DELETE-01] 서명 삭제에 실패했습니다.', 'error');
+                return;
+            }
+            await loadSessions(true, cloudConfig.scriptUrl, cloudConfig.adminKey);
         } else {
             deleteTargets.forEach(sid => Storage.removeSignatureFromSession(sid, staffId));
             loadSessions(false);
@@ -739,7 +783,8 @@ const App: React.FC = () => {
 
     const getShareUrl = (sessionId: string) => {
         const baseUrl = appBaseUrl || window.location.href.split('?')[0];
-        if (cloudConfig.enabled) return `${baseUrl}?sessionId=${sessionId}&endpoint=${encodeURIComponent(cloudConfig.scriptUrl)}`;
+        const session = sessions.find(item => item.id === sessionId);
+        if (cloudConfig.enabled) return `${baseUrl}?sessionId=${sessionId}&endpoint=${encodeURIComponent(cloudConfig.scriptUrl)}&token=${encodeURIComponent(session?.participantToken || '')}`;
         return `${baseUrl}?sessionId=${sessionId}`;
     };
 
@@ -747,7 +792,7 @@ const App: React.FC = () => {
         if (!selectedSessionId) return [];
         const current = sessions.find(s => s.id === selectedSessionId);
         if (!current) return [];
-        return sessions.filter(s => s.date === current.date && s.type === current.type).map(s => s.title);
+        return current.relatedSessionTitles || sessions.filter(s => s.date === current.date && s.type === current.type).map(s => s.title);
     };
 
     const renderNotification = () => notification && (
@@ -813,7 +858,7 @@ const App: React.FC = () => {
                     onChangeSelectedAdminSessions={setSelectedAdminSessions}
                     onBulkDelete={handleBulkDelete}
                     cloudConfig={cloudConfig}
-                    onRefresh={() => loadSessions(cloudConfig.enabled, cloudConfig.scriptUrl)}
+                    onRefresh={() => loadSessions(cloudConfig.enabled, cloudConfig.scriptUrl, cloudConfig.adminKey)}
                     onEditTitle={setEditModeSession}
                     onShare={setShareModalSession}
                     onOpenSessionStaffUpdate={openSessionStaffUpdate}
@@ -834,7 +879,9 @@ const App: React.FC = () => {
                     selectedSessionId={selectedSessionId}
                     onSelectSession={setSelectedSessionId}
                     cloudConfig={cloudConfig}
-                    onReloadSessions={() => loadSessions(cloudConfig.enabled, cloudConfig.scriptUrl)}
+                    onReloadSessions={() => isLinkAccess && selectedSessionId
+                        ? loadParticipantSession(cloudConfig.scriptUrl, selectedSessionId, participantToken, authInput)
+                        : loadSessions(cloudConfig.enabled, cloudConfig.scriptUrl, cloudConfig.adminKey)}
                     isLinkAccess={isLinkAccess}
                     isSessionAuthenticated={isSessionAuthenticated}
                     authInput={authInput}
@@ -861,7 +908,7 @@ const App: React.FC = () => {
                     onDeleteSignature={handleSignatureDelete}
                 />
             )}
-            {viewMode === 'cloud_setup' && <CloudSetup currentUrl={cloudConfig.scriptUrl} onSave={handleCloudSetupSave} onCancel={() => setViewMode('admin')} />}
+            {viewMode === 'cloud_setup' && <CloudSetup currentUrl={cloudConfig.scriptUrl} currentAdminKey={cloudConfig.adminKey || ''} onSave={handleCloudSetupSave} onCancel={() => setViewMode('admin')} />}
             {isSigning && selectedStaff && <SignaturePad name={selectedStaff.name} sessionTitles={getTargetSessionTitles()} onSave={handleSignatureSave} onCancel={() => { setIsSigning(false); setSelectedStaff(null); }} />}
 
             {/* Export Results Modal */}
