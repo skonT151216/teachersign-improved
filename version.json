@@ -1,6 +1,6 @@
 {
-  "appVersion": "5.1.0",
-  "gasVersion": "5.1.0",
+  "appVersion": "5.1.1",
+  "gasVersion": "5.1.1",
   "publishedAt": "2026-10-09",
-  "notes": "GAS 단독 배포: 학교별 설치·관리자 로그인·연수 관리·QR 서명·GitHub 업데이트 확인을 학교 웹앱 주소에서 제공합니다."
+  "notes": "설치 함수 선택 문제 수정: setupTeacherSign으로 설치 준비를 실행하며, 설치 계정을 확인하고 관리자 연결키는 실행 로그에서만 안내합니다."
 }

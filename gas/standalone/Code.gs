@@ -1,8 +1,8 @@
-// TeacherSign Google Apps Script server v5.1.0
-// Install Code.gs AND Index.html from the GAS ZIP, run setupTeacherSign_ in the
+// TeacherSign Google Apps Script server v5.1.1
+// Install Code.gs AND Index.html from the GAS ZIP, run setupTeacherSign in the
 // Apps Script editor, then deploy the web app to execute as the installer.
 
-const SERVER_VERSION = "5.1.0";
+const SERVER_VERSION = "5.1.1";
 const DB_FILENAME = "TrainingApp_DB.json";
 const SIG_SHEET_FILENAME = "TrainingApp_Signatures";
 const SIG_SHEET_TAB = "signatures";
@@ -19,6 +19,19 @@ const SIG_HEADERS = [
   "signatureData",
   "timestamp",
 ];
+
+// Select this public entry in the editor. An anonymous web-app visitor must
+// never initialize owner storage or receive the bootstrap key through RPC.
+function setupTeacherSign() {
+  const active = Session.getActiveUser().getEmail().trim().toLowerCase();
+  const effective = Session.getEffectiveUser().getEmail().trim().toLowerCase();
+  if (!active || !effective || active !== effective)
+    throw new Error("[ERR-INSTALLER] 설치 담당자의 Google 계정으로 Apps Script 편집기에서 실행하세요.");
+  setupTeacherSign_();
+  // The key is printed only in the installer execution log, never returned
+  // by this callable entry, even when the installer opens their own web app.
+  return "설치 준비 완료. 실행 로그의 관리자 연결키를 확인하세요.";
+}
 
 function setupTeacherSign_() {
   const properties = PropertiesService.getScriptProperties();
@@ -69,7 +82,7 @@ function renderTeacherSign_(e) {
   return HtmlService.createHtmlOutput(html.replace('"__TEACHERSIGN_BOOTSTRAP_JSON__"', function () { return boot; })).setTitle('교직원 연수 등록부').addMetaTag('viewport', 'width=device-width, initial-scale=1');
 }
 
-// This is the only browser RPC entry. All storage/auth helpers end in _ and
+// This is the application RPC entry. All storage/auth helpers end in _ and
 // cannot be called directly with google.script.run.
 function teacherSignRpc(request) {
   try {
@@ -114,7 +127,7 @@ function requireAdmin_(candidate) {
     PropertiesService.getScriptProperties().getProperty(ADMIN_KEY_PROPERTY);
   if (!saved)
     throw new Error(
-      "[ERR-ADMIN-SETUP] Apps Script 편집기에서 setupTeacherSign_ 함수를 먼저 실행하세요.",
+      "[ERR-ADMIN-SETUP] Apps Script 편집기에서 setupTeacherSign 함수를 먼저 실행하세요.",
     );
   if (!candidate || String(candidate) !== saved)
     throw new Error("[ERR-ADMIN-KEY] 관리자 연결키가 일치하지 않습니다.");

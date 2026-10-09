@@ -25,7 +25,7 @@ export default function StandaloneGate() {
       <h1 className="text-2xl font-bold">교직원 연수 등록부</h1>
       <p role={error ? 'alert' : 'status'}>{error || '학교 설치 상태 확인 중…'}</p>
       {error && <>
-        <p>최초 설치라면 Apps Script 편집기에서 setupTeacherSign_을 실행하고 권한을 승인한 뒤 새 버전으로 배포하세요.</p>
+        <p>최초 설치라면 Apps Script 편집기에서 setupTeacherSign을 실행하고 권한을 승인한 뒤 새 버전으로 배포하세요.</p>
         <button type="button" onClick={() => setRetry(value => value + 1)} className="border rounded p-3">다시 확인</button>
       </>}
     </main>
@@ -57,7 +57,7 @@ function SchoolRegistration({ onComplete }: { onComplete: () => void }) {
   return <main className="max-w-xl mx-auto my-8 p-8 bg-white rounded-2xl shadow space-y-5">
     <h1 className="text-2xl font-bold">학교 관리자 최초 설정</h1>
     <p>이 학교의 Google Drive에 관리자 계정과 연수·서명을 보관합니다. 최초 한 번만 설정합니다.</p>
-    <p className="text-sm text-gray-600">연결키는 Apps Script 편집기에서 setupTeacherSign_을 실행했을 때 나온 설치 담당자용 값입니다.</p>
+    <p className="text-sm text-gray-600">연결키는 Apps Script 편집기에서 setupTeacherSign을 실행했을 때 나온 설치 담당자용 값입니다.</p>
     <form onSubmit={register} className="space-y-4">
       <label className="block">학교 이름<input required disabled={busy} value={label} onChange={e => setLabel(e.target.value)} maxLength={80} className="border p-3 rounded block mt-1 w-full" /></label>
       <label className="block">학교 관리자 연결키<input required disabled={busy} type="password" autoComplete="off" value={setupKey} onChange={e => setKey(e.target.value)} minLength={32} maxLength={256} className="border p-3 rounded block mt-1 w-full" /></label>

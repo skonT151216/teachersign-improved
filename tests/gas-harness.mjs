@@ -100,6 +100,8 @@ export function createGasHarness(
   options = {},
 ) {
   const props = new Map();
+  const session = { activeEmail: '', effectiveEmail: 'installer@example.test' };
+  const logs = [];
   let clock = Date.now();
   let locked = false;
   class Clock extends Date {
@@ -117,7 +119,11 @@ export function createGasHarness(
       : Buffer.from(value);
   const context = vm.createContext({
     Date: Clock,
-    console: { log() {} },
+    console: { log: message => logs.push(message) },
+    Session: {
+      getActiveUser: () => ({ getEmail: () => session.activeEmail }),
+      getEffectiveUser: () => ({ getEmail: () => session.effectiveEmail }),
+    },
     DriveApp: shared.drive,
     SpreadsheetApp: shared.spreadsheet,
     ScriptApp: { getScriptId: () => id, getService: () => ({ getUrl: () => options.webAppUrl || `https://script.google.com/macros/s/${id}/exec` }) },
@@ -167,10 +173,12 @@ export function createGasHarness(
     },
   });
   vm.runInContext(source, context);
-  context.setupTeacherSign_();
+  if (options.initialize !== false) context.setupTeacherSign_();
   return {
     context,
     props,
+    session,
+    logs,
     shared,
     key: props.get("TEACHERSIGN_ADMIN_KEY"),
     now: () => clock,

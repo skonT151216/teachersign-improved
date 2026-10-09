@@ -29,12 +29,36 @@ test('browser scrypt and HMAC retain the existing v5 Node verifier protocol', as
 test('only guarded RPC and web handlers are callable; private helpers cannot bypass login', async () => {
   const code = await readFile(new URL('../Code.gs', import.meta.url), 'utf8');
   const exposed = [...code.matchAll(/^function (\w+)\(/gm)].map(match => match[1]).filter(name => !name.endsWith('_'));
-  assert.deepEqual(exposed.sort(), ['doGet', 'doPost', 'teacherSignRpc']);
+  assert.deepEqual(exposed.sort(), ['doGet', 'doPost', 'setupTeacherSign', 'teacherSignRpc']);
   const gas = createGasHarness();
   assert.equal(gas.rpc({ operation: 'getStoredData' }).status, 'error');
   assert.ok(gas.rpc({ operation: 'admin', name: 'getAdminSessions' }).message.startsWith('[ERR-AUTH]'));
   assert.equal(gas.rpc(null).status, 'error');
   assert.equal(gas.rpc({ operation: 'info', text: 'x'.repeat(2000001) }).status, 'error');
+});
+test('visible installer rejects anonymous and other users before any storage writes and never returns the key', () => {
+  const gas = createGasHarness('installer-school', createFakeDrive(), { initialize: false });
+  for (const activeEmail of ['', 'teacher@example.test']) {
+    gas.session.activeEmail = activeEmail;
+    assert.throws(() => gas.context.setupTeacherSign({ activeEmail: 'installer@example.test' }), /ERR-INSTALLER/);
+    assert.equal(gas.props.size, 0);
+    assert.equal(gas.shared.files.size, 0);
+    assert.equal(gas.logs.length, 0);
+  }
+  gas.session.activeEmail = 'installer@example.test';
+  gas.session.effectiveEmail = '';
+  assert.throws(() => gas.context.setupTeacherSign(), /ERR-INSTALLER/);
+  assert.equal(gas.props.size, 0);
+  gas.session.effectiveEmail = 'installer@example.test';
+  const result = gas.context.setupTeacherSign();
+  const key = gas.props.get('TEACHERSIGN_ADMIN_KEY');
+  assert.ok(key);
+  assert.ok(gas.logs.some(message => message === `관리자 연결키: ${key}`));
+  assert.ok(!result.includes(key));
+  const files = [...gas.shared.files.keys()];
+  gas.context.setupTeacherSign();
+  assert.equal(gas.props.get('TEACHERSIGN_ADMIN_KEY'), key);
+  assert.deepEqual([...gas.shared.files.keys()], files);
 });
 test('default GAS URL serves self-contained HTML and escapes untrusted participant query values', () => {
   const gas = createGasHarness('A_PRIVATE_PROJECT_ID');
@@ -48,7 +72,7 @@ test('default GAS URL serves self-contained HTML and escapes untrusted participa
   assert.equal(boot.params.sessionId, attack);
   assert.equal(boot.params.school, undefined);
   assert.ok([...html.matchAll(/<script\b([^>]*)>[\s\S]*?<\/script>/g)].every(match => !/\bsrc\s*=/.test(match[1])));
-  assert.equal(JSON.parse(gas.context.doGet({ parameter: { action: 'healthCheck' } }).getContent()).data.serverVersion, '5.1.0');
+  assert.equal(JSON.parse(gas.context.doGet({ parameter: { action: 'healthCheck' } }).getContent()).data.serverVersion, '5.1.1');
 });
 test('GAS RPC supports existing v5 account, school isolation, CSRF, logout and expiry', async () => {
   const shared = createFakeDrive(), a = createGasHarness('rpc-school-A', shared), b = createGasHarness('rpc-school-B', shared);
@@ -62,7 +86,8 @@ test('GAS RPC supports existing v5 account, school isolation, CSRF, logout and e
   assert.ok(a.rpc({ operation: 'connection', ...access, csrf: 'wrong' }).message.startsWith('[ERR-CSRF]'));
   const files = [...shared.files.keys()];
   const before = a.state().account.passwordHash;
-  a.context.setupTeacherSign_();
+  a.session.activeEmail = a.session.effectiveEmail;
+  a.context.setupTeacherSign();
   assert.deepEqual([...shared.files.keys()], files);
   assert.equal(a.state().account.passwordHash, before);
   assert.equal(a.rpc({ operation: 'logout', ...access }).status, 'success');
