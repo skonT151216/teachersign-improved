@@ -1,10 +1,12 @@
 import { browserPassword, digest, passwordProof, randomToken } from './browserPassword.mjs';
 import { getGasRuntime } from './gasRuntime';
+import { schoolEndpoint } from './schoolEndpoint.mjs';
 
 let sessionToken = '';
 export const clearGasSession = () => { sessionToken = ''; };
 const abortError = () => new DOMException('요청을 취소했습니다.', 'AbortError');
 export function gasRpc(operation: string, input: object, signal: AbortSignal): Promise<any> {
+  if (getGasRuntime()?.transport === 'http') return gasHttpRpc(operation, input, signal);
   return new Promise((resolve, reject) => {
     if (signal.aborted) return reject(abortError());
     let settled = false;
@@ -21,9 +23,31 @@ export function gasRpc(operation: string, input: object, signal: AbortSignal): P
           finish(resolve, value.data);
         })
         .withFailureHandler(() => finish(reject, new Error('[ERR-GAS-NETWORK] 학교 GAS에 연결하지 못했습니다. 다시 시도하세요.')))
-        .teacherSignRpc({ ...input, operation });
+        .teacherSignRpc({ ...input, operation, protocolVersion: 1 });
     } catch { finish(reject, new Error('[ERR-GAS-NETWORK] GAS 웹앱 주소에서 프로그램을 열어 주세요.')); }
   });
+}
+async function gasHttpRpc(operation: string, input: object, signal: AbortSignal) {
+  const url = schoolEndpoint(getGasRuntime()?.webAppUrl);
+  if (!url) throw new Error('[ERR-SCHOOL-URL] 학교 GAS 웹앱 주소를 확인하세요.');
+  const body = JSON.stringify({ ...input, action: 'schoolGateway', operation, protocolVersion: 1 });
+  if (body.length > 2000000) throw new Error('[ERR-SIZE] 요청 크기를 초과했습니다.');
+  let response: Response;
+  try {
+    // Simple cross-origin POST: no cookies, auth header or preflight. GAS
+    // ContentService redirects to Google's JSON endpoint. Never replay writes.
+    response = await fetch(url, { method: 'POST', body, signal, redirect: 'follow', credentials: 'omit', cache: 'no-store', referrerPolicy: 'no-referrer', headers: { 'Content-Type': 'text/plain;charset=utf-8' } });
+  } catch (error) {
+    if (signal.aborted) throw error;
+    throw new Error('[ERR-GAS-NETWORK] 학교 GAS에 연결하지 못했습니다. 웹앱을 모든 사용자에게 공개했는지 확인하세요.');
+  }
+  if (!response.ok) throw new Error('[ERR-GAS-NETWORK] 학교 GAS 응답을 확인하지 못했습니다. 배포 및 공개 설정을 확인하세요.');
+  let result: any;
+  try { result = await response.json(); }
+  catch { throw new Error('[ERR-GAS-JSON] 학교 GAS가 JSON 응답을 보내지 않았습니다. 로그인 없는 공개 배포와 /exec 주소를 확인하세요.'); }
+  if (operation === 'info' && result?.message?.startsWith('[ERR-ACTION')) throw new Error('[ERR-VERSION] 학교 GAS가 기존 v4 요청 방식입니다. GitHub의 v5 설치 파일로 업데이트하세요.');
+  if (result?.status !== 'success') throw new Error(result?.message || '[ERR-GAS] 요청을 처리하지 못했습니다.');
+  return result.data;
 }
 export async function gasRequest(path: string, body: any, csrf: string, requestId: string, signal: AbortSignal) {
   const call = (operation: string, input: object = {}) => gasRpc(operation, input, signal);
@@ -56,7 +80,10 @@ export async function gasRequest(path: string, body: any, csrf: string, requestI
   if (path === '/api/auth/logout') {
     const value = await call('logout', access()); sessionToken = ''; return value;
   }
-  if (path === '/api/admin/connection') return call('connection', access());
+  if (path === '/api/admin/connection') {
+    const connection = await call('connection', access());
+    return getGasRuntime()?.transport === 'http' ? { ...connection, participantEndpoint: getGasRuntime()!.webAppUrl } : connection;
+  }
   if (path === '/api/admin/account') return call('account', access());
   if (path === '/api/admin/account/update') {
     const salt = await call('accountSalt', access());

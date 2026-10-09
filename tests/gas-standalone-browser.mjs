@@ -5,20 +5,33 @@ import * as XLSX from 'xlsx';
 import { createStandaloneFixture } from './gas-standalone-fixture.mjs';
 
 await mkdir('artifacts', { recursive: true });
+const hosted = process.env.TEACHERSIGN_TEST_MODE === 'hosted';
 const fixture = await createStandaloneFixture();
+const endpoint = id => `https://script.google.com/macros/s/FixtureSchoolEndpoint${id}/exec`;
+const schoolUrl = id => hosted ? `${fixture.base}/hosted?endpoint=${encodeURIComponent(endpoint(id))}` : `${fixture.base}/school/${id}/exec`;
+const view = page => hosted ? page : page.frameLocator('iframe');
 const browser = await chromium.launch();
 const checks = [], errors = [], external = [];
 const password = 'Fictional-Standalone-Password-2026!';
 const nextPassword = 'New-Fictional-Standalone-Password-2026!';
 const context = await browser.newContext({ viewport: { width: 1280, height: 950 } });
 const page = await context.newPage();
-const ui = () => page.frameLocator('iframe');
+const ui = () => view(page);
 const pass = label => { checks.push(label); console.log(`PASS ${label}`); };
 async function isolate(context) {
   context.on('page', page => page.on('pageerror', e => errors.push(e.message)));
-  await context.route('**/*', route => {
+  await context.route('**/*', async route => {
     const url = new URL(route.request().url());
-    if (url.hostname === 'raw.githubusercontent.com') return route.fulfill({ contentType: 'application/json', body: JSON.stringify({ appVersion: '5.2.0', gasVersion: '5.2.0', publishedAt: '2026-10-09', notes: '가상 GAS 업데이트' }) });
+    if (url.hostname === 'raw.githubusercontent.com') return route.fulfill({ contentType: 'application/json', body: JSON.stringify({ appVersion: '5.3.0', gasVersion: '5.3.0', publishedAt: '2026-10-09', notes: '가상 GAS 업데이트' }) });
+    if (hosted && url.hostname === 'script.google.com') {
+      const id = /FixtureSchoolEndpoint([AB])\/exec$/.exec(url.pathname)?.[1];
+      assert.ok(id); assert.equal(route.request().method(), 'POST');
+      const input = route.request().postDataJSON();
+      assert.equal(input.action, 'schoolGateway'); assert.equal(input.protocolVersion, 1);
+      assert.ok(!route.request().headers()['x-csrf-token']);
+      const response = await route.fetch({ url: `${fixture.base}/http/${id}` });
+      return route.fulfill({ response, headers: { ...response.headers(), 'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json' } });
+    }
     if (url.hostname !== 'localhost' && !['data:', 'blob:'].includes(url.protocol)) { external.push(url.href); return route.abort(); }
     return route.continue();
   });
@@ -26,7 +39,7 @@ async function isolate(context) {
 await isolate(context);
 page.on('pageerror', e => errors.push(e.message));
 async function register(id, label) {
-  await page.goto(`${fixture.base}/school/${id}/exec`);
+  await page.goto(schoolUrl(id));
   await ui().getByRole('heading', { name: '학교 관리자 최초 설정' }).waitFor();
   await ui().getByLabel('학교 이름', { exact: true }).fill(label);
   await ui().getByLabel('학교 관리자 연결키', { exact: true }).fill(fixture.setupKey);
@@ -43,17 +56,46 @@ async function login(secret = password, username = 'same-admin') {
   await ui().getByRole('heading', { name: '관리자 대시보드' }).waitFor();
 }
 try {
+  if (hosted) {
+    await page.goto(`${fixture.base}/hosted`);
+    await ui().getByLabel('학교 GAS 웹앱 주소', { exact: true }).fill('https://evil.test/exec');
+    await ui().getByRole('button', { name: '학교 연결', exact: true }).click();
+    await ui().getByRole('alert').waitFor();
+    assert.equal(fixture.calls.length, 0);
+    await page.evaluate(url => localStorage.setItem('training_app_cloud_config', JSON.stringify({ enabled: true, scriptUrl: url, adminKey: 'Fictional-Obsolete-Private-Key' })), endpoint('A'));
+    await page.goto(`${fixture.base}/hosted`);
+    await ui().getByRole('heading', { name: '학교 관리자 최초 설정' }).waitFor();
+    const legacy = await page.evaluate(() => JSON.parse(localStorage.getItem('training_app_cloud_config')));
+    assert.equal(legacy.adminKey, undefined);
+    assert.equal(legacy.scriptUrl, endpoint('A'));
+    await page.evaluate(() => localStorage.removeItem('training_app_cloud_config'));
+    pass('Hosted setup validates the school URL, retains the v4 public connection and removes its obsolete saved key');
+    const incompatible = async route => {
+      if (route.request().postDataJSON().operation !== 'info') return route.fallback();
+      return route.fulfill({ headers: { 'Access-Control-Allow-Origin': '*' }, contentType: 'application/json', body: JSON.stringify({ status: 'success', data: { serverVersion: '4.0.0', accountConfigured: false } }) });
+    };
+    await context.route(endpoint('A'), incompatible);
+    await page.goto(schoolUrl('A'));
+    await ui().getByRole('alert').filter({ hasText: '[ERR-VERSION]' }).waitFor();
+    assert.equal(await ui().getByLabel('아이디', { exact: true }).count(), 0);
+    await context.unroute(endpoint('A'), incompatible);
+    pass('Hosted site explains incompatible GAS versions before asking for credentials');
+    await page.goto(`${fixture.base}/hosted?sessionId=missing-school`);
+    await ui().getByRole('alert').filter({ hasText: '새 QR' }).waitFor();
+    assert.equal(await ui().getByLabel('학교 GAS 웹앱 주소', { exact: true }).count(), 0);
+    pass('A participant link without a school cannot silently select the browser saved school');
+  }
   await register('A', '가상 GAS 학교 A');
-  pass('GAS /exec in an iframe opens initial account setup and then login');
+  pass(hosted ? 'Hosted site opens initial account setup and then login' : 'GAS /exec in an iframe opens initial account setup and then login');
   await login();
-  pass('Administrator logs in through google.script.run with browser scrypt');
+  pass(hosted ? 'Hosted administrator logs in directly to school GAS over simple cross-origin HTTP with browser scrypt' : 'Administrator logs in through google.script.run with browser scrypt');
   const firstAccess = fixture.calls.find(call => call.id === 'A' && call.request.operation === 'connection').request;
   await ui().getByRole('button', { name: '서버 연결 설정', exact: true }).click();
-  assert.equal(await ui().getByLabel('학교 접속 링크', { exact: true }).inputValue(), `${fixture.base}/school/A/exec`);
+  assert.equal(await ui().getByLabel('학교 접속 링크', { exact: true }).inputValue(), schoolUrl('A'));
   await ui().getByRole('button', { name: '프로그램 업데이트', exact: true }).click();
   await ui().getByText('새 업데이트가 있습니다.', { exact: true }).waitFor();
   assert.equal(await ui().getByRole('link', { name: 'GAS 설치 ZIP 다운로드', exact: true }).getAttribute('href'), 'https://github.com/skonT151216/teachersign-improved/releases/latest/download/TeacherSign-GAS.zip');
-  await page.screenshot({ path: 'artifacts/gas-standalone-updates.png', fullPage: true });
+  await page.screenshot({ path: `artifacts/${hosted ? 'gas-hosted' : 'gas-standalone'}-updates.png`, fullPage: true });
   pass('School settings use the canonical GAS URL and provide GAS install/update download');
   await ui().getByRole('button', { name: '돌아가기', exact: true }).click();
   // The XLSX template is generated from the embedded library; no CDN request.
@@ -75,16 +117,17 @@ try {
   await ui().getByRole('button', { name: '링크 공유', exact: true }).first().click();
   await ui().locator('img[alt=QR]').waitFor();
   const participantLink = await ui().locator('input[readonly]').inputValue();
-  assert.equal(new URL(participantLink).pathname, '/school/A/exec');
+  assert.equal(new URL(participantLink).pathname, hosted ? '/hosted' : '/school/A/exec');
   assert.ok(!participantLink.includes('/frame/'));
   assert.ok(!participantLink.includes(fixture.setupKey));
-  assert.equal(new URL(participantLink).searchParams.get('school'), null);
+  if (hosted) assert.equal(new URL(participantLink).searchParams.get('endpoint'), endpoint('A'));
+  else assert.equal(new URL(participantLink).searchParams.get('school'), null);
   await ui().getByRole('button', { name: '닫기', exact: true }).click();
-  pass('Training QR points to the school /exec URL rather than its sandbox iframe');
+  pass(hosted ? 'Hosted training QR preserves the public domain and binds the school GAS endpoint' : 'Training QR points to the school /exec URL rather than its sandbox iframe');
   const mobile = await browser.newContext({ viewport: { width: 390, height: 844 } });
   await isolate(mobile);
   const participant = await mobile.newPage();
-  const signer = participant.frameLocator('iframe');
+  const signer = view(participant);
   await participant.goto(participantLink);
   await signer.getByPlaceholder('소속 입력', { exact: true }).fill('가상 소속');
   await signer.getByPlaceholder('직위 입력', { exact: true }).fill('교사');
@@ -100,7 +143,7 @@ try {
   await participant.mouse.up();
   await signer.getByRole('button', { name: '서명 완료', exact: true }).click();
   await signer.getByText('가상 참여자님 서명 전송 완료.', { exact: true }).waitFor();
-  await participant.screenshot({ path: 'artifacts/gas-standalone-mobile-signature.png', fullPage: true });
+  await participant.screenshot({ path: `artifacts/${hosted ? 'gas-hosted' : 'gas-standalone'}-mobile-signature.png`, fullPage: true });
   await mobile.close();
   const rows = fixture.schools.get('A').rpc({ ...firstAccess, operation: 'admin', name: 'getAdminSessions', payload: {} });
   const office = rows.data.find(session => session.type === 'office');
@@ -118,8 +161,8 @@ try {
   const staffContext = await browser.newContext({ viewport: { width: 390, height: 844 } });
   await isolate(staffContext);
   const staffPage = await staffContext.newPage();
-  const staffUi = staffPage.frameLocator('iframe');
-  await staffPage.goto(`${fixture.base}/school/A/exec?sessionId=${encodeURIComponent(school.id)}&token=${encodeURIComponent(school.participantToken)}`);
+  const staffUi = view(staffPage);
+  await staffPage.goto(`${schoolUrl('A')}${hosted ? '&' : '?'}sessionId=${encodeURIComponent(school.id)}&token=${encodeURIComponent(school.participantToken)}`);
   await staffUi.getByRole('button', { name: /홍길동/ }).click();
   await staffUi.getByRole('button', { name: '출장', exact: true }).click();
   await staffUi.getByRole('button', { name: '서명 완료', exact: true }).click();
@@ -149,9 +192,9 @@ try {
   // Hold the RPC to verify visual feedback and duplicate-submit protection.
   let releaseLogout;
   const held = new Promise(resolve => { releaseLogout = resolve; });
-  await context.route('**/rpc/A', async route => {
+  await context.route(hosted ? endpoint('A') : '**/rpc/A', async route => {
     if (route.request().postDataJSON().operation === 'logout') await held;
-    await route.continue();
+    await route.fallback();
   });
   await ui().getByRole('button', { name: '로그아웃', exact: true }).click();
   assert.equal(await ui().getByRole('button', { name: '로그아웃 중…', exact: true }).isDisabled(), true);
@@ -167,16 +210,16 @@ try {
   const rejected = fixture.schools.get('B').rpc({ operation: 'participant', name: 'getParticipantSession', payload: { sessionId: link.searchParams.get('sessionId'), participantToken: link.searchParams.get('token') } });
   assert.equal(rejected.status, 'error');
   pass('Another school can use the same administrator ID while sessions and participant links remain isolated');
-  const storage = await page.frames()[1].evaluate(() => ({ local: Object.keys(localStorage), session: Object.keys(sessionStorage) }));
-  assert.deepEqual(storage, { local: [], session: [] });
+  const storage = await (hosted ? page : page.frames()[1]).evaluate(() => ({ local: Object.keys(localStorage), session: Object.keys(sessionStorage) }));
+  assert.deepEqual(storage, { local: hosted ? ['teachersign_school_url_v5'] : [], session: [] });
   assert.equal((await context.cookies()).length, 0);
   assert.ok(fixture.calls.every(call => !JSON.stringify(call.request).includes(password) && !JSON.stringify(call.request).includes(nextPassword)));
   assert.deepEqual(external, []);
   assert.deepEqual(errors, []);
   pass('No plaintext password, browser persistent credentials, Vercel or external script dependency');
-  await writeFile('artifacts/gas-standalone-browser-results.json', JSON.stringify({ passed: true, checks, errors, external }, null, 2));
+  await writeFile(`artifacts/${hosted ? 'gas-hosted' : 'gas-standalone'}-browser-results.json`, JSON.stringify({ passed: true, checks, errors, external }, null, 2));
 } catch (error) {
-  await page.screenshot({ path: 'artifacts/gas-standalone-failure.png', fullPage: true });
-  await writeFile('artifacts/gas-standalone-browser-results.json', JSON.stringify({ passed: false, checks, errors, external, failure: error.message }, null, 2));
+  await page.screenshot({ path: `artifacts/${hosted ? 'gas-hosted' : 'gas-standalone'}-failure.png`, fullPage: true });
+  await writeFile(`artifacts/${hosted ? 'gas-hosted' : 'gas-standalone'}-browser-results.json`, JSON.stringify({ passed: false, checks, errors, external, failure: error.message }, null, 2));
   throw error;
 } finally { await browser.close(); await fixture.stop(); }

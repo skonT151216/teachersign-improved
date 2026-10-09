@@ -4,6 +4,9 @@
 .env*
 artifacts
 node_modules
+api
+gas
+.gas-build
 tests
 DEVELOPMENT.md
 DEPLOYMENT-DESIGN.md

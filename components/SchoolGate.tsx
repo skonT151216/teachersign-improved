@@ -10,7 +10,7 @@ import {
 } from "../services/managedCloudService";
 import { clearPrivateState } from "../services/storageService";
 import scriptCode from "../Code.gs?raw";
-import { getAppParams, isGasStandalone } from '../services/gasRuntime';
+import { getAppParams, isGasStandalone, hasGasConnection } from '../services/gasRuntime';
 
 const schoolId = (url: string) =>
   /^https:\/\/script\.google\.com\/macros\/s\/([A-Za-z0-9_-]{10,200})\/exec$/.exec(
@@ -469,7 +469,7 @@ export function SchoolLogin({ school }: { school: string }) {
   return (
     <>
       <div className="bg-blue-100 text-blue-950 text-center p-2 no-print">
-        {isGasStandalone() ? '교직원 연수 등록부' : '학교별 GAS 연동 시험판'}{label ? ` · ${label}` : ""}
+        {hasGasConnection() ? '교직원 연수 등록부' : '학교별 GAS 연동 시험판'}{label ? ` · ${label}` : ""}
       </div>
       {participant ? (
         <App key="participant" />
@@ -510,7 +510,7 @@ export function SchoolLogin({ school }: { school: string }) {
             이 페이지의 주소를 학교 접속 링크로 저장하세요. 해당 학교의 계정으로
             로그인합니다.
           </p>
-          {isGasStandalone() && <p className="text-sm text-gray-600">새로고침하거나 창을 닫으면 다시 로그인합니다.</p>}
+          {hasGasConnection() && <p className="text-sm text-gray-600">새로고침하거나 창을 닫으면 다시 로그인합니다.</p>}
           <form onSubmit={login} className="space-y-4">
             <label className="block">
               아이디
@@ -547,7 +547,7 @@ export function SchoolLogin({ school }: { school: string }) {
               {busy ? "확인 중…" : "로그인"}
             </button>
           </form>
-          {!isGasStandalone() && <a className="text-indigo-700 underline" href={location.pathname}>
+          {!hasGasConnection() && <a className="text-indigo-700 underline" href={location.pathname}>
             다른 학교 접속·새 설치
           </a>}
         </main>

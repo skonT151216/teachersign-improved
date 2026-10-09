@@ -1,6 +1,6 @@
 # GAS 단독 배포 구성과 검증 범위
 
-2026-10-09, v5.1.1. 화면·인증·연수·서명 처리는 학교별 GAS 웹앱에서 실행합니다. 추가 Vercel·Node 서버·Redis·DB 서비스는 사용하지 않습니다. 과거 중계 시험 기록은 [DEPLOYMENT.md](DEPLOYMENT.md)에 보관합니다.
+2026-10-10, v5.2.0. 화면·인증·연수·서명 처리는 학교별 GAS 웹앱에서 실행합니다. 계정·자료를 처리하는 추가 Node 서버·Redis·DB 서비스는 사용하지 않습니다. 선택적으로 공용 정적 사이트를 Cloudflare 또는 Vercel에서 제공합니다. 과거 중계 시험 기록은 [DEPLOYMENT.md](DEPLOYMENT.md)에 보관합니다.
 
 | 기능 | 위치 |
 | --- | --- |
@@ -41,3 +41,9 @@ GAS ScriptLock은 동시 갱신을 보호하고 최근 쓰기 ID를 5분 동안 
 Node VM에서 실제 Code.gs를 실행하고 Google Drive/Sheets/Properties/Lock/Utilities를 모의 구현으로 대체합니다. 브라우저에서는 배포 HTML을 GAS와 같은 iframe 제한으로 실행하고 RPC 전송만 모의 구현으로 대체합니다. 실제 Google 계정의 권한 승인·조직 공개 정책·Drive 지연·서비스 할당량과 모바일 Google iframe의 최종 동작은 실제 설치 후 확인해야 합니다. 설치 계정의 Google 실행·저장 할당량을 사용하며 무제한 처리를 보장하지 않습니다.
 
 공식 근거: [HtmlService 통신과 비공개 함수](https://developers.google.com/apps-script/guides/html/communication), [iframe 제한](https://developers.google.com/apps-script/guides/html/restrictions), [웹앱 실행 권한](https://developers.google.com/apps-script/guides/web), [서비스 할당량](https://developers.google.com/apps-script/guides/services/quotas).
+
+## 공용 정적 사이트
+
+공용 도메인은 Google /exec 주소를 엄격히 검증하고 학교 GAS의 `schoolGateway`에 쿠키 없는 text/plain POST를 직접 보냅니다. GAS는 요청의 작업·세션·CSRF·쓰기 ID를 검증하며 기존 학교별 저장소를 사용합니다. 자동 쓰기 재시도는 하지 않습니다. 설치 상태를 확인할 때 apiVersion 1을 검사하고, 기존 v5는 서버 버전으로 호환을 확인합니다. 해당 규약을 유지하는 서버 갱신은 공용 사이트 재배포 없이 가능합니다.
+
+참여 링크는 자신의 학교 endpoint를 명시해야 하며 브라우저에 저장된 다른 학교로 대체하지 않습니다. 브라우저에는 학교 공개 URL만 저장합니다. v4 연결 설정의 URL을 가져오면서 더 이상 사용하지 않는 관리자 연결키를 제거하며, 기존 v4 연수·서명 자료는 자동으로 이전하지 않습니다.

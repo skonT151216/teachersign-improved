@@ -1,6 +1,6 @@
 {
-  "appVersion": "5.1.1",
-  "gasVersion": "5.1.1",
-  "publishedAt": "2026-10-09",
-  "notes": "설치 함수 선택 문제 수정: setupTeacherSign으로 설치 준비를 실행하며, 설치 계정을 확인하고 관리자 연결키는 실행 로그에서만 안내합니다."
+  "appVersion": "5.2.0",
+  "gasVersion": "5.2.0",
+  "publishedAt": "2026-10-10",
+  "notes": "학교 GAS /exec와 공용 도메인에서 같은 v5 기능을 지원합니다. 공용 사이트는 학교 GAS에 직접 연결하며 요청 버전 불일치를 안내합니다."
 }

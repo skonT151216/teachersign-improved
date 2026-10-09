@@ -139,6 +139,7 @@ const App: React.FC = () => {
                     const token = params.get('token') || '';
                     setParticipantToken(token);
                     const endpoint = params.get('endpoint') || '/api/participant';
+                    setCloudConfig({ enabled: true, scriptUrl: endpoint });
                     await loadParticipantSession(endpoint, sessionId, token);
                 } else {
                     setViewMode('admin');

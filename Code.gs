@@ -1,8 +1,8 @@
-// TeacherSign Google Apps Script server v5.1.1
+// TeacherSign Google Apps Script server v5.2.0
 // Install Code.gs AND Index.html from the GAS ZIP, run setupTeacherSign in the
 // Apps Script editor, then deploy the web app to execute as the installer.
 
-const SERVER_VERSION = "5.1.1";
+const SERVER_VERSION = "5.2.0";
 const DB_FILENAME = "TrainingApp_DB.json";
 const SIG_SHEET_FILENAME = "TrainingApp_Signatures";
 const SIG_SHEET_TAB = "signatures";
@@ -772,12 +772,15 @@ function schoolGateway_(request) {
   try {
     schoolWriteLocked = true;
     const state = readSchoolAuth_();
+    if (request.protocolVersion !== undefined && request.protocolVersion !== 1)
+      throw new Error('[ERR-VERSION] 사이트와 학교 GAS의 연결 버전이 맞지 않습니다.');
     const op = request.operation;
     const now = Date.now();
     let data;
     if (op === "info") {
       data = {
         serverVersion: SERVER_VERSION,
+        apiVersion: 1,
         accountConfigured: Boolean(state.account),
         label: state.account ? state.account.label : "",
         storageReady: true,

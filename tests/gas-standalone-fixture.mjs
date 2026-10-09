@@ -1,5 +1,6 @@
 import { createServer } from 'node:http';
 import { createGasHarness, createFakeDrive } from './gas-harness.mjs';
+import { readFile } from 'node:fs/promises';
 
 export async function createStandaloneFixture({ port = 0 } = {}) {
   let base = '';
@@ -11,17 +12,22 @@ export async function createStandaloneFixture({ port = 0 } = {}) {
   const server = createServer(async (req, res) => {
     try {
       const url = new URL(req.url, 'http://fixture.invalid');
-      const match = /^\/(school|frame|rpc)\/([AB])(?:\/exec)?$/.exec(url.pathname);
+      if (req.method === 'GET' && (url.pathname === '/hosted' || /^\/assets\/[A-Za-z0-9_.-]+$/.test(url.pathname))) {
+        const name = url.pathname === '/hosted' ? 'index.html' : url.pathname.slice(1);
+        res.setHeader('Content-Type', name.endsWith('.js') ? 'text/javascript; charset=utf-8' : name.endsWith('.css') ? 'text/css; charset=utf-8' : 'text/html; charset=utf-8');
+        return res.end(await readFile(new URL(`../dist/${name}`, import.meta.url)));
+      }
+      const match = /^\/(school|frame|rpc|http)\/([AB])(?:\/exec)?$/.exec(url.pathname);
       if (!match) { res.writeHead(404); return res.end(); }
       const [, type, id] = match, gas = schools.get(id);
       res.setHeader('Cache-Control', 'no-store');
-      if (type === 'rpc' && req.method === 'POST') {
+      if ((type === 'rpc' || type === 'http') && req.method === 'POST') {
         let body = '';
         for await (const chunk of req) { body += chunk; if (body.length > 2000000) throw Error('Too large'); }
         const request = JSON.parse(body);
         calls.push({ id, request });
         res.setHeader('Content-Type', 'application/json');
-        return res.end(JSON.stringify(gas.rpc(request)));
+        return res.end(JSON.stringify(type === 'http' ? gas.dispatch(request) : gas.rpc(request)));
       }
       if (req.method !== 'GET') { res.writeHead(405); return res.end(); }
       res.setHeader('Content-Type', 'text/html; charset=utf-8');

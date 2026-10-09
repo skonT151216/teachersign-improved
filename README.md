@@ -1,6 +1,6 @@
-# 교직원 연수 등록부 도우미 v5.1.1 · GAS 단독 배포
+# 교직원 연수 등록부 도우미 v5.2.0 · 학교 GAS와 공용 사이트
 
-각 학교의 **Google Apps Script와 Google Drive만으로** 설치·관리자 로그인·연수 관리·QR 서명을 제공합니다. Vercel·별도 웹 서버·추가 DB 서비스는 필요하지 않습니다. 일반 교직원은 관리자 로그인 없이 학교 QR로 서명합니다.
+각 학교의 **Google Apps Script와 Google Drive만으로** 설치·관리자 로그인·연수 관리·QR 서명을 제공합니다. 학교별 /exec 이용에는 별도 웹 서버·추가 DB 서비스가 필요하지 않습니다. 공용 도메인은 Cloudflare 또는 Vercel의 정적 화면에서 같은 학교 GAS에 직접 연결할 수 있습니다. 일반 교직원은 관리자 로그인 없이 학교 QR로 서명합니다.
 
 **[GAS 설치 ZIP 다운로드](https://github.com/skonT151216/teachersign-improved/releases/latest/download/TeacherSign-GAS.zip)** · [상세 설치 안내](gas/standalone/설치안내.md) · [배포 파일 폴더](gas/standalone)
 
@@ -16,6 +16,14 @@
 
 ZIP의 `appsscript.json`으로 매니페스트를 직접 설정했다면 이번 파일로 함께 교체합니다. 설치 계정 확인에 필요한 `userinfo.email` 권한이 추가되었습니다. 자동 권한 설정을 사용한다면 별도 편집은 필요하지 않습니다. 교사는 npm·Node 설치 없이 ZIP의 두 파일을 붙여넣으면 됩니다. `/exec`는 화면을 열며 서버 상태 JSON은 `/exec?action=healthCheck`로 확인합니다. Google 권한 승인은 설치 담당자가 한 번 진행하고, 참여 교직원에게 Drive 권한이나 Vercel 계정을 요구하지 않습니다.
 
+## 공용 도메인에서 이용
+
+[teachersign.skonvibe.com](https://teachersign.skonvibe.com)은 Cloudflare Worker `teachersign`의 공용 화면입니다. 사이트 운영자가 **[사이트 배포 ZIP](https://github.com/skonT151216/teachersign-improved/releases/latest/download/TeacherSign-Site.zip)**으로 화면을 업데이트한 뒤, 각 학교의 GAS /exec 주소를 연결합니다. 관리자 계정·세션·연수·서명은 해당 학교의 GAS/Drive에 보관합니다. Vercel 로그인이나 별도 DB는 요구하지 않습니다.
+
+공용 사이트에서 만든 QR은 공용 도메인과 학교 GAS 주소를 함께 담습니다. GAS /exec에서 만든 QR은 해당 /exec로 연결됩니다. 같은 학교 자료와 관리자 계정으로 양쪽에서 사용할 수 있습니다. 브라우저에는 학교 공개 주소만 저장하고 관리자 비밀번호·세션은 저장하지 않습니다.
+
+[Cloudflare 운영 사이트 업데이트 안내](CLOUDFLARE.md)
+
 ## 기존 v5 시험 설치에서 전환
 
 **동일 GAS 프로젝트**의 Code.gs를 교체하고 Index HTML을 추가한 뒤 **배포 관리 → 기존 배포 수정 → 새 버전**으로 배포합니다. 기존 /exec 주소·스크립트 속성·Drive 파일 ID를 유지하면 계정과 연수·서명 자료를 계속 사용합니다. 관리자 계정을 다시 만들지 않습니다.
@@ -26,7 +34,7 @@ ZIP의 `appsscript.json`으로 매니페스트를 직접 설정했다면 이번 
 
 로그인 후 **서버 연결 설정 → 프로그램 업데이트**에서 현재 화면·GAS 버전과 GitHub 최신 버전을 비교합니다. 변경 내용, 저장소, 설치 ZIP 링크를 제공합니다. 통신 실패를 최신 상태로 표시하지 않습니다.
 
-업데이트 ZIP의 **Code.gs와 Index HTML을 함께 교체**하고 기존 배포를 새 버전으로 수정합니다. 스크립트 속성·Drive 파일을 지우거나 계정을 다시 만들지 않습니다. 업데이트는 자동 설치되지 않습니다.
+업데이트 ZIP의 **Code.gs와 Index HTML을 함께 교체**하고 기존 배포를 새 버전으로 수정합니다. 스크립트 속성·Drive 파일을 지우거나 계정을 다시 만들지 않습니다. 업데이트는 자동 설치되지 않습니다. 요청 버전 1을 유지하는 GAS 서버 수정은 GAS만 갱신할 수 있습니다. 화면 수정은 /exec의 Index HTML 또는 공용 사이트 배포에도 반영해야 하며, 요청 형식 변경은 양쪽을 함께 업데이트합니다.
 
 ## 개발·검증
 

@@ -2,6 +2,8 @@ import React, { useEffect, useRef, useState } from 'react';
 import { getAppParams, getGasRuntime } from '../services/gasRuntime';
 import { request, setSchoolScope } from '../services/managedCloudService';
 import { SchoolLogin } from './SchoolGate';
+import { assertCompatibleGas } from '../services/schoolEndpoint.mjs';
+import { DOWNLOAD_URL } from '../services/updateService.mjs';
 
 setSchoolScope(getGasRuntime()?.school || '');
 export default function StandaloneGate() {
@@ -14,8 +16,8 @@ export default function StandaloneGate() {
     let active = true;
     if (!runtime || participant) return;
     setError(''); setConfigured(null);
-    request<{ accountConfigured: boolean }>('/api/school/info', {})
-      .then(value => { if (active) setConfigured(value.accountConfigured); })
+    request<{ accountConfigured: boolean; serverVersion: string; apiVersion?: number }>('/api/school/info', {})
+      .then(value => { assertCompatibleGas(value); if (active) setConfigured(value.accountConfigured); })
       .catch(e => { if (active) setError(e.message); });
     return () => { active = false; };
   }, [participant, retry, runtime]);
@@ -25,7 +27,7 @@ export default function StandaloneGate() {
       <h1 className="text-2xl font-bold">교직원 연수 등록부</h1>
       <p role={error ? 'alert' : 'status'}>{error || '학교 설치 상태 확인 중…'}</p>
       {error && <>
-        <p>최초 설치라면 Apps Script 편집기에서 setupTeacherSign을 실행하고 권한을 승인한 뒤 새 버전으로 배포하세요.</p>
+        {error.startsWith('[ERR-VERSION]') ? <a href={DOWNLOAD_URL} className="text-indigo-700 underline">호환되는 GAS 설치 ZIP 다운로드</a> : <p>최초 설치라면 Apps Script 편집기에서 setupTeacherSign을 실행하고 권한을 승인한 뒤 새 버전으로 배포하세요.</p>}
         <button type="button" onClick={() => setRetry(value => value + 1)} className="border rounded p-3">다시 확인</button>
       </>}
     </main>

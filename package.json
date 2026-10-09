@@ -1,12 +1,12 @@
 {
   "name": "teachersign",
   "private": true,
-  "version": "5.1.1",
+  "version": "5.2.0",
   "type": "module",
   "homepage": "https://github.com/skonT151216/teachersign-improved",
   "scripts": {
     "dev": "node server/gas-preview.mjs",
-    "build": "vite build",
+    "build": "node scripts/build-site.mjs",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "test": "node --test tests/*.test.mjs",
@@ -17,7 +17,9 @@
     "test:browser:deployment": "node tests/deployment-smoke.mjs",
     "build:gas": "node scripts/build-gas.mjs",
     "test:browser:standalone": "node tests/gas-standalone-browser.mjs",
-    "dev:gateway": "node server/school-dev.mjs"
+    "dev:gateway": "node server/school-dev.mjs",
+    "test:browser:hosted": "TEACHERSIGN_TEST_MODE=hosted node tests/gas-standalone-browser.mjs",
+    "build:site": "node scripts/build-site.mjs"
   },
   "dependencies": {
     "@noble/hashes": "2.4.0",

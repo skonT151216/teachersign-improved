@@ -41,3 +41,9 @@ npm run test:browser:standalone
 `npm run dev:gateway`는 이전 Node 중계 시험판입니다. `npm run dev:demo`는 한 학교 가상 자료 시험판입니다. 기존 회귀 검사 `tests/school.test.mjs`, `tests/security.test.mjs`, `tests/school-browser.mjs`는 보관합니다. Vercel 시험 주소를 사용하거나 재배포하지 않습니다. `test:browser:deployment`는 명시한 `TEACHERSIGN_PUBLIC_URL`이 있어야 실행하는 별도 과거 도구입니다.
 
 `.env*`, `.vercel/`, `artifacts/`, `.teachersign-demo/`, `node_modules/`, `dist/`, `.gas-build/`는 커밋하지 않습니다. 실제 학교 자료·쿠키·암호는 테스트와 공개 배포 파일에 넣지 않습니다.
+
+## 공용 사이트 빌드
+
+`npm run build:site`는 학교 GAS에 직접 연결하는 정적 화면을 dist에 빌드하고 artifacts/releases/TeacherSign-Site.zip을 만듭니다. Cloudflare Worker의 기존 teachersign 자산을 갱신할 때 사용합니다. Vercel도 같은 dist 정적 파일을 제공할 수 있으며 API Functions·추가 DB·서버 환경변수가 필요하지 않습니다. `npm run build:gas`는 별도의 학교 /exec용 단일 HTML과 설치 ZIP을 만듭니다.
+
+두 빌드를 만든 뒤 `npm run test:browser:standalone`과 `npm run test:browser:hosted`로 같은 실제 GAS 코드의 인증·자료·서명 흐름을 각각 검증합니다. hosted 테스트는 공개 Google URL의 단순 POST를 가상 학교 HTTP 서버로 대체합니다. 실제 Google의 CORS·공개 정책·할당량은 운영 설치에서 별도 확인합니다.

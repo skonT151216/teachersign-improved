@@ -70,7 +70,7 @@ export default function ProgramUpdates() {
       {gasError && <p role="alert" className="text-red-700">{gasError}</p>}
       <div className="flex flex-wrap gap-4">
         <a href={GITHUB_URL} target="_blank" rel="noopener noreferrer" className="text-indigo-700 underline">GitHub에서 업데이트 확인</a>
-        <a href={DOWNLOAD_URL} target="_blank" rel="noopener noreferrer" className="text-indigo-700 underline">{isGasStandalone() ? 'GAS 설치 ZIP 다운로드' : '최신 프로그램 ZIP 다운로드'}</a>
+        <a href={DOWNLOAD_URL} target="_blank" rel="noopener noreferrer" className="text-indigo-700 underline">GAS 설치 ZIP 다운로드</a>
         <a href={`${GITHUB_URL}/blob/main/Code.gs`} target="_blank" rel="noopener noreferrer" className="text-indigo-700 underline">최신 GAS 코드 보기</a>
       </div>
       <p className="text-sm text-gray-600">업데이트는 자동 설치되지 않습니다. 기존 v4 자료를 v5로 자동 이전하는 기능은 없으므로 v4 운영 프로젝트에 덮어쓰지 마세요.</p>

@@ -1,5 +1,6 @@
 import { TrainingSession, Signature } from '../types';
-import { isGasStandalone } from './gasRuntime';
+import { hasGasConnection, getGasRuntime } from './gasRuntime';
+import { validParticipantEndpoint } from './schoolEndpoint.mjs';
 import { gasRequest, clearGasSession } from './gasTransport';
 
 export interface AdminSession { username: string; csrf: string; expiresAt: number }
@@ -28,9 +29,9 @@ export async function request<T>(path: string, body?: unknown, write = false): P
   const currentEpoch = epoch;
   const key = write ? crypto.randomUUID() : '';
   pending.add(controller);
-  const timer = window.setTimeout(() => controller.abort(), isGasStandalone() ? 90_000 : 35_000);
+  const timer = window.setTimeout(() => controller.abort(), hasGasConnection() ? 90_000 : 35_000);
   try {
-    if (isGasStandalone()) {
+    if (hasGasConnection()) {
       try {
         const result = await gasRequest(path, body, csrf, key, controller.signal);
         if (currentEpoch !== epoch) throw new DOMException('Session changed', 'AbortError');
@@ -84,7 +85,7 @@ const save = async (participant: boolean, name: string, payload: object): Promis
 // Arguments retain the v4 client call shape; connection credentials are never sent.
 export const fetchAdminSessions = (_url: string, _key?: string) => action<TrainingSession[]>(false, 'getAdminSessions', {});
 export const fetchParticipantSession = (url: string, sessionId: string, participantToken: string, authCode = '') => {
-  if (url !== '/api/participant') throw new Error('[ERR-LINK] 이 앱에서 발급한 학교 참여 링크를 사용하세요.');
+  if (!validParticipantEndpoint(url, getGasRuntime())) throw new Error('[ERR-LINK] 이 앱에서 발급한 학교 참여 링크를 사용하세요.');
   return action<TrainingSession>(true, 'getParticipantSession', { sessionId, participantToken, authCode });
 };
 export const createCloudSession = (_url: string, _key: string, session: TrainingSession) => save(false, 'createSession', { session });
@@ -92,6 +93,6 @@ export const deleteCloudSession = (_url: string, _key: string, sessionId: string
 export const addSignatureBatch = (_url: string, _key: string, sessionIds: string[], signature: Signature) => save(false, 'addSignatureBatch', { sessionIds, signature });
 export const removeSignatureBatch = (_url: string, _key: string, sessionIds: string[], staffId: string) => save(false, 'removeSignatureBatch', { sessionIds, staffId });
 export const sendParticipantSignature = (url: string, sessionId: string, participantToken: string, authCode: string, signature: Signature) => {
-  if (url !== '/api/participant') return Promise.resolve(false);
+  if (!validParticipantEndpoint(url, getGasRuntime())) return Promise.resolve(false);
   return save(true, 'addParticipantSignature', { sessionId, participantToken, authCode, signature });
 };
