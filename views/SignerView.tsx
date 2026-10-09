@@ -90,7 +90,7 @@ const SignerView: React.FC<SignerViewProps> = (props) => {
                     <div className="text-4xl mb-4">⌛</div>
                     <h2 className="text-xl font-bold text-gray-800 mb-2">연수 정보를 불러오지 못했습니다</h2>
                     <p className="text-sm text-gray-500 mb-6 break-keep">
-                        현재 접속자가 많아 구글 서버 응답이 지연되고 있습니다.<br/><br/>
+                        참여 링크와 서버 연결 상태를 확인해주세요.<br/><br/>
                         잠시 후 아래 버튼을 눌러 다시 시도해주세요. (계속 실패하면 페이지 새로고침을 해주세요)
                     </p>
                     <button

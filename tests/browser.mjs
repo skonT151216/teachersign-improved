@@ -1,0 +1,197 @@
+import assert from 'node:assert/strict';
+import { mkdir, writeFile } from 'node:fs/promises';
+import { chromium } from 'playwright';
+import { DEMO_USERNAME, DEMO_PASSWORD, DEMO_PARTICIPANT_TOKEN } from '../server/demo-store.mjs';
+import { DEMO_ACCOUNTS } from '../server/demo-fixtures.mjs';
+
+const base = 'http://localhost:5178';
+await mkdir('artifacts', { recursive: true });
+const browser = await chromium.launch();
+const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+const page = await context.newPage();
+const failures = [];
+const forbidden = [];
+const checks = [];
+const writes = [];
+let initialAccount = DEMO_ACCOUNTS[0];
+const pass = label => { checks.push(label); console.log(`PASS ${label}`); };
+// External static assets are blocked as well; tests exercise local auth/storage only.
+await context.route('**/*', async route => {
+  const url = new URL(route.request().url());
+  if (url.hostname !== 'localhost' && url.protocol !== 'data:') {
+    if (url.hostname.includes('script.google') || url.hostname.includes('qrserver') || url.hostname.includes('accounts.google')) forbidden.push(url.hostname);
+    return route.fulfill({ status: 200, contentType: 'text/javascript', body: '' });
+  }
+  return route.continue();
+});
+page.on('pageerror', error => failures.push(error.message));
+page.on('request', req => { if (req.url().endsWith('/api/auth/login')) writes.push('login'); if (req.url().endsWith('/api/admin/action') && req.postDataJSON()?.action === 'createSession') writes.push('create'); });
+const login = async (account = initialAccount) => {
+  await page.getByRole('heading', { name: '관리자 로그인' }).waitFor();
+  await page.getByLabel('아이디', { exact: true }).fill(account.username);
+  await page.getByLabel('암호', { exact: true }).fill(account.password);
+  await page.getByRole('button', { name: '로그인', exact: true }).evaluate(button => { button.click(); button.click(); });
+  await page.getByRole('heading', { name: '관리자 대시보드' }).waitFor();
+};
+const api = (path, body = {}, write = false) => page.evaluate(async ({ path, body, write }) => {
+  const session = await fetch('/api/auth/session', { cache: 'no-store' }).then(response => response.json());
+  const response = await fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': session.csrf, ...(write ? { 'Idempotency-Key': crypto.randomUUID() } : {}) }, body: JSON.stringify(body) });
+  return { status: response.status, body: await response.json() };
+}, { path, body, write });
+let createdId;
+let initialConnection;
+try {
+  const publicAccount = await context.request.get(base + '/api/demo/account').then(response => response.json());
+  initialAccount = DEMO_ACCOUNTS.find(item => item.id === publicAccount.presetId) || initialAccount;
+  await page.goto(base);
+  await page.getByRole('heading', { name: '관리자 로그인' }).waitFor();
+  assert.equal(await page.getByRole('heading', { name: '관리자 대시보드' }).count(), 0);
+  assert.equal(await page.locator('vite-error-overlay').count(), 0);
+  pass('Unauthenticated entry shows login only');
+  await page.getByRole('button', { name: 'Google 연동·관리자 계정 설정 과정 보기' }).click();
+  await page.getByRole('dialog', { name: '초기 설정 과정' }).waitFor();
+  await page.getByRole('button', { name: '설정 안내 닫기' }).click();
+  pass('Setup guide is available before login');
+  await page.evaluate(() => {
+    localStorage.setItem('training_app_cloud_config', JSON.stringify({ enabled: true, scriptUrl: 'https://script.google.com/macros/s/DEMO_NEVER_CALL/exec', adminKey: 'mock-legacy-key' }));
+    localStorage.setItem('training_app_sessions_v1', JSON.stringify([{ title: 'MOCK_LEGACY_NEVER_IMPORT' }]));
+  });
+  await page.getByLabel('아이디', { exact: true }).fill(DEMO_USERNAME);
+  await page.getByLabel('암호', { exact: true }).fill('incorrect');
+  await page.getByRole('button', { name: '로그인', exact: true }).click();
+  await page.getByRole('alert').filter({ hasText: '일치하지 않습니다' }).waitFor();
+  pass('Incorrect password is rejected in the UI');
+  const before = writes.length;
+  await login();
+  assert.equal(writes.slice(before).filter(value => value === 'login').length, 1);
+  assert.ok(!(await page.locator('body').innerText()).includes('MOCK_LEGACY_NEVER_IMPORT'));
+  const cookie = (await context.cookies()).find(cookie => cookie.name === '__Host-teachersign_dev_session');
+  assert.ok(cookie?.httpOnly && cookie.secure && cookie.sameSite === 'Strict');
+  assert.ok(!(await page.evaluate(() => document.cookie)).includes(cookie.name));
+  pass('Login double-click submits once; Secure HttpOnly cookie works on localhost; legacy storage is ignored');
+  initialConnection = (await api('/api/admin/connection')).body;
+  await page.getByRole('button', { name: '서버 연결 설정', exact: true }).click();
+  await page.getByLabel('저장소 이름').fill('브라우저 검증 가상 저장소');
+  await page.getByRole('button', { name: '저장 및 완료' }).click();
+  await page.getByRole('heading', { name: '관리자 대시보드' }).waitFor();
+  await page.getByRole('button', { name: '로그아웃', exact: true }).click();
+  await page.getByRole('heading', { name: '관리자 로그인' }).waitFor();
+  await page.reload();
+  await page.getByRole('heading', { name: '관리자 로그인' }).waitFor();
+  assert.equal(await page.getByText('가상 연수 1', { exact: true }).count(), 0);
+  const denied = await page.evaluate(() => fetch('/api/admin/action', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'getAdminSessions' }) }).then(response => response.status));
+  assert.equal(denied, 401);
+  await context.clearCookies(); await page.evaluate(() => { localStorage.clear(); sessionStorage.clear(); });
+  await login();
+  await page.getByRole('button', { name: '서버 연결 설정', exact: true }).click();
+  await page.getByLabel('저장소 이름').waitFor();
+  await page.waitForFunction(() => document.querySelector('input')?.value === '브라우저 검증 가상 저장소');
+  pass('Logout revokes access, clears private screen; connection survives browser data removal and new login');
+  await page.getByRole('button', { name: '저장소 연결 해제', exact: true }).click();
+  await page.getByRole('button', { name: '연결 해제 확인', exact: true }).click();
+  await page.getByRole('heading', { name: '관리자 대시보드' }).waitFor();
+  assert.equal((await api('/api/admin/connection')).body.configured, false);
+  await page.getByRole('button', { name: '서버 연결 설정', exact: true }).click();
+  await page.getByLabel('저장소 이름').fill('브라우저 검증 가상 저장소');
+  await page.getByRole('button', { name: '저장 및 완료' }).click();
+  await page.getByRole('heading', { name: '관리자 대시보드' }).waitFor();
+  pass('Explicit disconnect is distinct from logout and can reconnect without deleting data');
+  await page.getByText('🏢 외부공개', { exact: true }).click();
+  await page.getByPlaceholder('연수명', { exact: true }).fill('가상 반복 클릭 검증');
+  await page.getByPlaceholder('기관명', { exact: true }).fill('가상 기관');
+  await page.locator('input[type=date]').fill('2026-10-03');
+  const beforeCreate = writes.filter(value => value === 'create').length;
+  await page.getByRole('button', { name: '연수 등록', exact: true }).evaluate(button => { button.click(); button.click(); });
+  await page.getByRole('heading', { name: '가상 반복 클릭 검증' }).waitFor();
+  const sessions = (await api('/api/admin/action', { action: 'getAdminSessions' })).body.data;
+  const matches = sessions.filter(session => session.title === '가상 반복 클릭 검증');
+  assert.equal(matches.length, 1); createdId = matches[0].id;
+  assert.equal(writes.filter(value => value === 'create').length - beforeCreate, 1);
+  pass('Repeated create click produces one training');
+  await page.getByRole('button', { name: '링크 공유', exact: true }).first().click();
+  await page.locator('img[alt=QR]').waitFor();
+  assert.match(await page.locator('img[alt=QR]').getAttribute('src'), /^data:image\/png;base64,/);
+  assert.ok((await page.locator('input[readonly]').inputValue()).includes('endpoint=%2Fapi%2Fparticipant&token='));
+  await page.getByRole('button', { name: '닫기', exact: true }).click();
+  await page.screenshot({ path: 'artifacts/admin-desktop.png', fullPage: true });
+  pass('QR is generated locally and preserves sessionId/endpoint/token link format');
+  const participant = await context.newPage();
+  participant.on('pageerror', error => failures.push(error.message));
+  await participant.setViewportSize({ width: 390, height: 844 });
+  await participant.goto(`${base}/?sessionId=demo-training-1&endpoint=%2Fapi%2Fparticipant&token=${DEMO_PARTICIPANT_TOKEN}`);
+  await participant.getByRole('button', { name: /가상 교직원 가/ }).waitFor();
+  assert.equal(await participant.getByRole('button', { name: '로그아웃', exact: true }).count(), 0);
+  await participant.getByRole('button', { name: /가상 교직원 가/ }).click();
+  await participant.getByRole('button', { name: '출장', exact: true }).click();
+  await participant.locator('.animate-pop-in').evaluate(element => Promise.all(element.getAnimations().map(animation => animation.finished)));
+  await participant.screenshot({ path: 'artifacts/signature-mobile.png' });
+  let signRequests = 0;
+  participant.on('request', req => { if (req.url().endsWith('/api/participant') && req.postDataJSON()?.action === 'addParticipantSignature') signRequests++; });
+  await participant.getByRole('button', { name: '서명 완료', exact: true }).evaluate(button => { button.click(); button.click(); });
+  await participant.getByRole('button', { name: /가상 교직원 가.*서명완료/ }).waitFor();
+  assert.equal(signRequests, 1);
+  const signed = (await api('/api/admin/action', { action: 'getAdminSessions' })).body.data.filter(session => ['demo-training-1', 'demo-training-2'].includes(session.id));
+  assert.ok(signed.every(session => session.signatures.some(signature => signature.staffId === 'demo-staff-1' && signature.signatureData.startsWith('data:image/webp;base64,'))));
+  await participant.close();
+  pass('Mobile anonymous participant signs once for both same-date trainings; WebP and stable staff IDs retained');
+  await api('/api/auth/logout'); // Revoke on the server while the browser still retains the old cookie.
+  await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+  await page.getByRole('heading', { name: '관리자 로그인' }).waitFor();
+  await page.goto(base + '/?expired-view=1'); await page.goBack();
+  await page.getByRole('heading', { name: '관리자 로그인' }).waitFor();
+  assert.equal(await page.getByRole('heading', { name: '관리자 대시보드' }).count(), 0);
+  pass('Revoked session revalidation clears private view; Back navigation cannot restore admin data');
+  await login();
+  assert.deepEqual(await page.evaluate(() => ({ local: Object.keys(localStorage), session: Object.keys(sessionStorage) })), { local: [], session: [] });
+  pass('Browser storage holds no connection credentials, login tokens or private roster/session cache');
+  const privateState = await context.request.get(base + '/.teachersign-demo/state.json');
+  assert.equal(privateState.status(), 403);
+  await page.getByRole('button', { name: '서버 연결 설정', exact: true }).click();
+  await page.getByLabel('설정 방식').selectOption('google-demo');
+  assert.equal(await page.getByLabel('웹앱 URL 예시').getAttribute('readonly'), '');
+  assert.ok(await page.getByRole('button', { name: '저장 및 완료' }).isDisabled());
+  await page.getByRole('button', { name: '모의 연동 테스트', exact: true }).click();
+  await page.getByText('모의 연동 검사 완료 · 실제 Google 연결 없음', { exact: true }).waitFor();
+  await page.screenshot({ path: 'artifacts/google-setup.png', fullPage: true });
+  await page.getByRole('button', { name: '저장 및 완료' }).click();
+  await page.getByRole('heading', { name: '관리자 대시보드' }).waitFor();
+  assert.equal((await api('/api/admin/connection')).body.setupMode, 'google-demo');
+  pass('Google setup checks and saves the fixed simulation; private server state is not served by Vite');
+  await page.getByRole('button', { name: '관리자 계정', exact: true }).click();
+  const nextAccount = DEMO_ACCOUNTS.find(item => item.id !== initialAccount.id);
+  await page.getByLabel('가상 계정 예시').selectOption(nextAccount.id);
+  assert.equal(await page.getByLabel('변경할 아이디').inputValue(), nextAccount.username);
+  await page.screenshot({ path: 'artifacts/account-setup.png', fullPage: true });
+  await page.getByRole('button', { name: '가상 계정 적용', exact: true }).click();
+  await page.getByRole('button', { name: '변경하고 다시 로그인', exact: true }).click();
+  await page.getByRole('heading', { name: '관리자 로그인' }).waitFor();
+  await login(nextAccount);
+  assert.equal((await api('/api/admin/connection')).body.setupMode, 'google-demo');
+  await page.getByRole('button', { name: '관리자 계정', exact: true }).click();
+  await page.getByLabel('가상 계정 예시').selectOption(initialAccount.id);
+  await page.getByRole('button', { name: '가상 계정 적용', exact: true }).click();
+  await page.getByRole('button', { name: '변경하고 다시 로그인', exact: true }).click();
+  await page.getByRole('heading', { name: '관리자 로그인' }).waitFor();
+  await login();
+  pass('Admin account preview applies a fixture, logs out, accepts the new account and retains connection settings');
+  assert.deepEqual(forbidden, []); assert.deepEqual(failures, []);
+  pass('No live GAS/Google login/remote QR requests or page errors');
+} catch (error) {
+  await page.screenshot({ path: 'artifacts/browser-failure.png', fullPage: true });
+  console.error(error); process.exitCode = 1;
+} finally {
+  // Clean only records introduced by this virtual-data test.
+  const currentAccount = await context.request.get(base + '/api/demo/account').then(response => response.json()).catch(() => null);
+  const currentFixture = DEMO_ACCOUNTS.find(item => item.id === currentAccount?.presetId) || initialAccount;
+  if (await page.getByRole('heading', { name: '관리자 로그인' }).count()) await login(currentFixture).catch(() => {});
+  if (currentFixture.id !== initialAccount.id) {
+    const current = (await api('/api/admin/account')).body;
+    const restored = await api('/api/admin/account/update', { presetId: initialAccount.id, revision: current.revision, currentPassword: currentFixture.password }).catch(() => null);
+    if (restored?.status === 200) { await page.reload(); await login(initialAccount); }
+  }
+  if (createdId) await api('/api/admin/action', { action: 'deleteSession', sessionId: createdId }, true).catch(() => {});
+  await api('/api/admin/action', { action: 'removeSignatureBatch', sessionIds: ['demo-training-1', 'demo-training-2'], staffId: 'demo-staff-1' }, true).catch(() => {});
+  if (initialConnection?.configured) { const current = (await api('/api/admin/connection')).body; await api('/api/admin/connection/update', { provider: 'mock', label: initialConnection.label, revision: current.revision, setupMode: initialConnection.setupMode || 'basic' }).catch(() => {}); }
+  await writeFile('artifacts/browser-results.json', JSON.stringify({ checks, pageErrors: failures, forbiddenRequests: forbidden, passed: !process.exitCode }, null, 2));
+  await browser.close();
+}

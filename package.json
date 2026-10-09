@@ -1,20 +1,27 @@
 {
   "name": "teachersign",
   "private": true,
-  "version": "4.0.0",
+  "version": "5.0.0",
   "type": "module",
-  "homepage": "https://skonT151216.github.io/teachersign",
+  "homepage": "https://teachersign-schools-test-20261003.vercel.app",
   "scripts": {
-    "dev": "vite",
+    "dev": "node server/school-dev.mjs",
     "build": "vite build",
     "preview": "vite preview",
-    "build:single": "npx cross-env SINGLE_FILE=true vite build && powershell -ExecutionPolicy ByPass -Command \"if (Test-Path dist\\index.html) { Move-Item dist\\index.html portable-teachersign.html -Force }\""
+    "typecheck": "tsc --noEmit",
+    "test": "node --test tests/*.test.mjs",
+    "test:browser": "node tests/browser.mjs",
+    "dev:gas": "node server/school-dev.mjs",
+    "dev:demo": "node server/dev.mjs",
+    "test:browser:gas": "node tests/school-browser.mjs",
+    "test:browser:deployment": "node tests/deployment-smoke.mjs"
   },
   "dependencies": {
     "autoprefixer": "^10.4.27",
     "esbuild": "^0.27.3",
     "html2pdf.js": "^0.14.0",
     "postcss": "^8.5.8",
+    "qrcode": "^1.5.4",
     "react": "^19.2.1",
     "react-dom": "^19.2.1",
     "tailwindcss": "^4.2.1",
@@ -23,10 +30,16 @@
   "devDependencies": {
     "@tailwindcss/vite": "^4.2.1",
     "@types/node": "^22.14.0",
+    "@types/qrcode": "^1.5.6",
     "@vitejs/plugin-react": "^5.0.0",
+    "agent-browser": "^0.38.2",
     "gh-pages": "^6.3.0",
+    "playwright": "^1.63.0",
     "typescript": "~5.8.2",
     "vite": "^6.2.0",
     "vite-plugin-singlefile": "^2.3.0"
+  },
+  "engines": {
+    "node": "24.x"
   }
 }

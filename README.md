@@ -1,32 +1,53 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# 교직원 연수 등록부 도우미 v5 · 학교별 GAS 연동
 
-# 교직원 연수 등록부 서명 도우미 v4.0
+여러 학교가 공용 앱을 사용하고, 학교마다 자신의 Google Apps Script(GAS)와 Google Drive에 관리자 계정·연수·서명을 보관하는 프로그램입니다. 추가 Redis·DB 서비스는 사용하지 않습니다.
 
-교직원은 별도 로그인 없이 QR 링크로 접속해 당일 여러 연수에 한 번 서명하고, 담당자는 연수별 등록부를 취합·출력할 수 있습니다.
+**[공개 앱 열기](https://teachersign-schools-test-20261003.vercel.app)** · [학교 설치·배포 안내](DEPLOYMENT.md) · [개발·검증 안내](DEVELOPMENT.md)
 
-View your app in AI Studio: https://ai.studio/apps/6c7c8583-2c2d-41f3-b8d6-da92ff71c3f2
+서명 참여자는 Vercel·Google·학교 관리자 로그인 없이 QR로 접속합니다. 관리자는 해당 학교의 앱 아이디·암호로 로그인합니다. Google 권한 승인은 학교 담당자가 GAS를 최초 설치할 때 진행합니다.
 
-## Run Locally
+## 학교에 처음 설치하기
 
-**Prerequisites:**  Node.js
+1. 공개 앱에서 **새 학교 설치**를 선택합니다.
+2. 학교 담당자의 Google 계정으로 새 Apps Script 프로젝트를 만들고 **v5 GAS 코드 복사**의 코드를 붙여넣습니다. 이 저장소의 [Code.gs](Code.gs)를 사용해도 됩니다.
+3. `setupTeacherSign`을 실행해 Drive·Sheets 권한을 승인하고, 실행 로그에 나온 **관리자 연결키**를 보관합니다.
+4. 웹앱으로 배포합니다. 실행 사용자는 **설치 담당자(나)**, 접근 권한은 **Google 로그인 없이 접속 가능한 모든 사용자**로 설정합니다. 학교의 Google Workspace 정책에 따라 공개 웹앱 배포가 제한될 수 있습니다.
+5. 공개 앱의 설치 화면에 `/exec` 주소·학교 이름·연결키를 입력하고 관리자 아이디와 12자 이상 암호를 정합니다.
+6. 생성된 학교 접속 링크를 저장하고 로그인합니다. 연수 등록 후 **링크 공유**로 참여 QR을 발급합니다.
 
+`/exec` 주소 자체는 JSON을 반환하는 저장소 서버입니다. 관리자 로그인과 서명 화면은 공용 앱에서 엽니다. 연결키는 최초 계정 설정에 사용하며, 로그인에는 직접 정한 앱 아이디·암호를 사용합니다.
 
-1. Install dependencies:
-   `npm install`
-2. (Optional) Set up Google Sheets/Apps Script cloud sync from the in-app "구글 드라이브 연동" admin screen — no `.env` configuration is required for local-only use.
-3. Run the app:
-   `npm run dev`
+이미 설치한 학교는 **설치한 학교 접속**에 기존 `/exec` 주소를 입력하면 됩니다. 예전 Preview QR은 Vercel 인증을 요구할 수 있으므로 공개 앱에서 QR을 다시 공유하세요.
 
-## v4.0 Google 연동 업데이트
+## GAS 파일
 
-기존 연동 사용자는 관리자 화면의 `구글 연동 설정`에서 다음 순서로 업데이트합니다.
+| 파일 | 용도 |
+| --- | --- |
+| [Code.gs](Code.gs) | 새 학교 설치용 v5 기본 코드 |
+| [gas/TeacherSignV5.gs](gas/TeacherSignV5.gs) | 같은 v5 코드의 내려받기용 복사본 |
+| [gas/legacy/TeacherSignV4.gs](gas/legacy/TeacherSignV4.gs) | 기존 v4 코드 보관본 |
 
-1. 화면의 v4.0 Apps Script 코드를 복사해 기존 코드를 교체합니다.
-2. Apps Script에서 `setupTeacherSign` 함수를 한 번 실행하고 실행 로그의 관리자 연결키를 복사합니다.
-3. 웹앱을 새 버전으로 배포합니다. 실행 사용자는 `나`, 액세스 권한은 `모든 사용자`로 설정합니다.
-4. 웹앱 URL과 관리자 연결키를 입력하고 연동 테스트를 통과한 뒤 저장합니다.
-5. 기존 QR을 폐기하고 관리자 화면에서 새 참여 링크 또는 QR을 공유합니다.
+새 프로젝트에는 v5 코드 **한 파일만** 붙여넣습니다. 기존 v4 운영 GAS에 덮어쓰지 마세요. v4 자료를 v5로 자동 이전하는 기능은 포함하지 않았습니다.
 
-관리자 연결키는 담당자 기기에만 저장되며 참여 링크에는 포함되지 않습니다. 참여자는 Google 로그인 없이 서명할 수 있습니다.
+## 담당자의 업데이트 확인
+
+학교 관리자로 로그인하고 **서버 연결 설정 → 프로그램 업데이트**를 엽니다. GitHub의 [version.json](version.json)을 조회해 현재 화면과 학교 GAS의 버전을 각각 비교합니다. 새 버전 안내, 변경 내용, GitHub 저장소·최신 ZIP·GAS 코드 링크를 제공하며 **업데이트 확인**으로 다시 조회할 수 있습니다. 통신 실패는 최신 상태로 표시하지 않습니다.
+
+화면 업데이트는 공용 앱 운영 담당자가 배포합니다. 기존 v5 학교 GAS는 동일 프로젝트의 코드를 교체하고 **배포 관리 → 수정 → 새 버전**으로 배포하여 기존 웹앱 주소·스크립트 속성을 유지합니다. 관리자 계정이나 저장소를 다시 만들지 않습니다. 업데이트 확인은 버전 조회만 하며 자동으로 코드를 설치하지 않습니다.
+
+## 개발 실행
+
+Node.js 24.x에서 실행합니다.
+
+```sh
+npm ci
+npm run dev
+```
+
+http://localhost:5178 에서 학교별 GAS 연결 화면을 엽니다. 학교를 연결하기 전에는 실제 Google 요청을 보내지 않습니다. `npm run dev:gas`도 같은 실행 경로이며, Google에 연결하지 않는 가상 계정·자료 화면은 `npm run dev:demo`로 실행합니다.
+
+Vercel 배포에는 Node API와 Production의 `TEACHERSIGN_COOKIE_SECRET` 설정이 필요합니다. GitHub Pages나 정적 HTML만으로는 관리자 인증 API를 운영할 수 없습니다. 상세 설정은 [DEPLOYMENT.md](DEPLOYMENT.md)를 참고하세요.
+
+## 검증 범위
+
+학교 간 자료·계정·세션 격리, 관리자 인증, 로그아웃·암호 변경, QR 범위, 서명 중복 처리·조회 재시도·업데이트 버전 비교 검사를 포함합니다. 실제 학교에서 유효한 QR로 서명 저장과 동시 접속을 시험한 뒤 사용하세요. 구성과 한계는 [DEPLOYMENT-DESIGN.md](DEPLOYMENT-DESIGN.md)에 설명합니다.

@@ -1,0 +1,9 @@
+.git
+.vercel
+.teachersign-demo
+.env*
+artifacts
+node_modules
+tests
+DEVELOPMENT.md
+DEPLOYMENT-DESIGN.md

@@ -1,4 +1,5 @@
 import React from 'react';
+import LocalQr from '../components/LocalQr';
 import { Staff, TrainingSession, ViewMode, CloudConfig, SessionType } from '../types';
 
 interface AdminViewProps {
@@ -81,11 +82,12 @@ const AdminView: React.FC<AdminViewProps> = (props) => {
 
     return (
         <div className="min-h-screen bg-gray-50 pb-12">
-            <header className="bg-white shadow px-4 py-4 flex justify-between items-center sticky top-0 z-20">
+            <header className="bg-white shadow px-4 py-4 flex flex-col sm:flex-row gap-3 justify-between items-center sticky top-0 z-20">
                 <h1 className="text-2xl font-bold text-gray-800">관리자 대시보드</h1>
-                <div className="flex gap-2">
-                    <button onClick={() => onNavigate('cloud_setup')} className="px-3 py-1.5 bg-blue-50 text-blue-600 rounded-lg text-sm font-bold border border-blue-200 hover:bg-blue-100 transition-colors">구글 연동 설정</button>
-                    <button onClick={() => onNavigate('landing')} className="text-gray-600 font-bold px-3 py-1.5">나가기</button>
+                <div className="flex flex-wrap justify-center gap-2">
+                    <button onClick={() => onNavigate('account_setup')} className="px-3 py-1.5 bg-indigo-50 text-indigo-700 rounded-lg text-sm font-bold border border-indigo-200">관리자 계정</button>
+                    <button onClick={() => onNavigate('cloud_setup')} className="px-3 py-1.5 bg-blue-50 text-blue-600 rounded-lg text-sm font-bold border border-blue-200 hover:bg-blue-100 transition-colors">서버 연결 설정</button>
+                    <button onClick={() => onNavigate('landing')} className="text-gray-600 font-bold px-3 py-1.5">처음 화면</button>
                 </div>
             </header>
             <main className="max-w-7xl mx-auto px-4 py-8 space-y-8">
@@ -250,7 +252,7 @@ const AdminView: React.FC<AdminViewProps> = (props) => {
                     <div className="bg-white rounded-lg shadow-xl max-w-sm w-full p-6 text-center animate-pop-in" onClick={e => e.stopPropagation()}>
                         <h3 className="text-lg font-bold text-gray-800 mb-4">서명 링크 공유</h3>
                         <div className="bg-gray-100 p-4 rounded-lg mb-4 flex justify-center">
-                            <img src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(getShareUrl(shareModalSession.id))}`} alt="QR" className="w-40 h-40" />
+                            <LocalQr value={getShareUrl(shareModalSession.id)} />
                         </div>
                         <div className="flex gap-2 mb-4">
                             <input readOnly value={getShareUrl(shareModalSession.id)} className="flex-1 bg-gray-50 border rounded px-2 py-1 text-xs truncate text-gray-900" />

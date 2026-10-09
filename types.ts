@@ -43,7 +43,7 @@ export interface TrainingSession {
   authVerified?: boolean;
 }
 
-export type ViewMode = 'landing' | 'admin' | 'signer' | 'report' | 'cloud_setup';
+export type ViewMode = 'landing' | 'admin' | 'signer' | 'report' | 'cloud_setup' | 'account_setup';
 
 export interface CloudConfig {
   enabled: boolean;

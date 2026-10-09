@@ -1,11 +1,15 @@
 import { TrainingSession, Signature, Staff } from '../types';
 
-const STORAGE_KEY = 'training_app_sessions_v1';
-const STAFF_LIST_KEY = 'training_app_staff_list_v1';
+// Development copy: browser-private state is memory only, cleared on logout.
+const STORAGE_KEY = 'teachersign_dev_sessions_v1';
+const STAFF_LIST_KEY = 'teachersign_dev_staff_v1';
+const values = new Map<string, string>();
+const memory = { getItem: (key: string) => values.get(key) || null, setItem: (key: string, value: string) => { values.set(key, value); } };
+export const clearPrivateState = () => values.clear();
 
 export const getSessions = (): TrainingSession[] => {
   try {
-    const data = localStorage.getItem(STORAGE_KEY);
+    const data = memory.getItem(STORAGE_KEY);
     return data ? JSON.parse(data) : [];
   } catch (e) {
     console.error("Failed to load sessions", e);
@@ -23,12 +27,12 @@ export const saveSession = (session: TrainingSession): void => {
     sessions.push(session);
   }
   
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(sessions));
+  memory.setItem(STORAGE_KEY, JSON.stringify(sessions));
 };
 
 export const deleteSession = (sessionId: string): void => {
   const sessions = getSessions().filter(s => s.id !== sessionId);
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(sessions));
+  memory.setItem(STORAGE_KEY, JSON.stringify(sessions));
 };
 
 export const addSignatureToSession = (sessionId: string, signature: Signature): boolean => {
@@ -51,7 +55,7 @@ export const addSignatureToSession = (sessionId: string, signature: Signature): 
   }
   
   sessions[sessionIndex] = session;
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(sessions));
+  memory.setItem(STORAGE_KEY, JSON.stringify(sessions));
   return true;
 };
 
@@ -68,7 +72,7 @@ export const removeSignatureFromSession = (sessionId: string, staffId: string): 
   if (session.signatures.length === initialLength) return false; // Nothing removed
 
   sessions[sessionIndex] = session;
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(sessions));
+  memory.setItem(STORAGE_KEY, JSON.stringify(sessions));
   return true;
 };
 
@@ -76,7 +80,7 @@ export const removeSignatureFromSession = (sessionId: string, staffId: string): 
 
 export const getStaffList = (): Staff[] => {
   try {
-    const data = localStorage.getItem(STAFF_LIST_KEY);
+    const data = memory.getItem(STAFF_LIST_KEY);
     return data ? JSON.parse(data) : [];
   } catch (e) {
     console.error("Failed to load staff list", e);
@@ -85,7 +89,7 @@ export const getStaffList = (): Staff[] => {
 };
 
 export const saveStaffList = (staffList: Staff[]): void => {
-  localStorage.setItem(STAFF_LIST_KEY, JSON.stringify(staffList));
+  memory.setItem(STAFF_LIST_KEY, JSON.stringify(staffList));
 };
 
 // --- Data Sync (Export/Import) ---
@@ -107,7 +111,7 @@ export const mergeImportData = (data: any): { success: boolean, message: string 
     if (Array.isArray(data.staffList) && data.staffList.length > 0) {
        // Currently we simply update the global list to the imported one
        // In a real app we might want to prompt, but for "Sync", replacing is usually desired.
-       localStorage.setItem(STAFF_LIST_KEY, JSON.stringify(data.staffList));
+       memory.setItem(STAFF_LIST_KEY, JSON.stringify(data.staffList));
     }
 
     // 2. Merge Sessions
@@ -131,7 +135,7 @@ export const mergeImportData = (data: any): { success: boolean, message: string 
         }
       });
       
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(currentSessions));
+      memory.setItem(STORAGE_KEY, JSON.stringify(currentSessions));
     }
 
     return { 

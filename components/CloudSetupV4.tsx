@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import * as CloudService from '../services/cloudServiceV4';
-import scriptCode from '../Code.gs?raw';
+import scriptCode from '../gas/legacy/TeacherSignV4.gs?raw';
 
 interface CloudSetupProps {
   currentUrl: string;

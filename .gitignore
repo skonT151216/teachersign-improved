@@ -25,3 +25,10 @@ dist-ssr
 
 # Local preview config (machine-specific)
 .claude/
+
+.teachersign-demo/
+.env*
+artifacts/
+
+.vercel/
+.vercel
