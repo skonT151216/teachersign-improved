@@ -13,6 +13,7 @@ import SetupGuide from "./SetupGuide";
 import SchoolAccountSettings from "./SchoolAccountSettings";
 import ProgramUpdates from "./ProgramUpdates";
 import { getSchoolScope } from "../services/managedCloudService";
+import { getSchoolLink } from '../services/gasRuntime';
 
 export default function ServerConnection({
   onSave,
@@ -144,7 +145,7 @@ export default function ServerConnection({
               학교 접속 링크
               <input
                 readOnly
-                value={`${location.origin}${location.pathname}?school=${encodeURIComponent(getSchoolScope())}`}
+                value={getSchoolLink(getSchoolScope())}
                 className="w-full border rounded p-3 mt-2 text-sm"
               />
             </label>

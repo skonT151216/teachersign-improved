@@ -10,6 +10,7 @@ import {
 } from "../services/managedCloudService";
 import { clearPrivateState } from "../services/storageService";
 import scriptCode from "../Code.gs?raw";
+import { getAppParams, isGasStandalone } from '../services/gasRuntime';
 
 const schoolId = (url: string) =>
   /^https:\/\/script\.google\.com\/macros\/s\/([A-Za-z0-9_-]{10,200})\/exec$/.exec(
@@ -339,9 +340,9 @@ function SchoolInstallation() {
     </main>
   );
 }
-function SchoolLogin({ school }: { school: string }) {
+export function SchoolLogin({ school }: { school: string }) {
   const participant = Boolean(
-    new URLSearchParams(location.search).get("sessionId"),
+    getAppParams().get("sessionId"),
   );
   const [session, setSession] = useState<AdminSession | null>(null);
   const [checking, setChecking] = useState(!participant);
@@ -352,7 +353,9 @@ function SchoolLogin({ school }: { school: string }) {
   const [busy, setBusy] = useState(false);
   const [generation, setGeneration] = useState(0);
   const lock = useRef(false);
+  const authenticated = useRef(false);
   const drop = () => {
+    authenticated.current = false;
     clearPrivateSession();
     clearPrivateState();
     setSession(null);
@@ -378,11 +381,12 @@ function SchoolLogin({ school }: { school: string }) {
         const value = await request<AdminSession>("/api/auth/session");
         if (active) {
           acceptSession(value);
+          authenticated.current = true;
           setSession(value);
         }
       } catch (e) {
         if (active && (e as Error).name !== "AbortError") {
-          drop();
+          if (authenticated.current) drop();
           if (!(e as Error).message.startsWith("[ERR-AUTH]"))
             setError((e as Error).message);
         }
@@ -433,6 +437,7 @@ function SchoolLogin({ school }: { school: string }) {
         password,
       });
       acceptSession(value);
+      authenticated.current = true;
       setPassword("");
       setSession(value);
       setGeneration((v) => v + 1);
@@ -464,7 +469,7 @@ function SchoolLogin({ school }: { school: string }) {
   return (
     <>
       <div className="bg-blue-100 text-blue-950 text-center p-2 no-print">
-        학교별 GAS 연동 시험판{label ? ` · ${label}` : ""}
+        {isGasStandalone() ? '교직원 연수 등록부' : '학교별 GAS 연동 시험판'}{label ? ` · ${label}` : ""}
       </div>
       {participant ? (
         <App key="participant" />
@@ -505,6 +510,7 @@ function SchoolLogin({ school }: { school: string }) {
             이 페이지의 주소를 학교 접속 링크로 저장하세요. 해당 학교의 계정으로
             로그인합니다.
           </p>
+          {isGasStandalone() && <p className="text-sm text-gray-600">새로고침하거나 창을 닫으면 다시 로그인합니다.</p>}
           <form onSubmit={login} className="space-y-4">
             <label className="block">
               아이디
@@ -541,9 +547,9 @@ function SchoolLogin({ school }: { school: string }) {
               {busy ? "확인 중…" : "로그인"}
             </button>
           </form>
-          <a className="text-indigo-700 underline" href={location.pathname}>
+          {!isGasStandalone() && <a className="text-indigo-700 underline" href={location.pathname}>
             다른 학교 접속·새 설치
-          </a>
+          </a>}
         </main>
       )}
     </>

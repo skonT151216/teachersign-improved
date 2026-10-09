@@ -97,6 +97,7 @@ export function createFakeDrive() {
 export function createGasHarness(
   id = "school-test",
   shared = createFakeDrive(),
+  options = {},
 ) {
   const props = new Map();
   let clock = Date.now();
@@ -119,7 +120,11 @@ export function createGasHarness(
     console: { log() {} },
     DriveApp: shared.drive,
     SpreadsheetApp: shared.spreadsheet,
-    ScriptApp: { getScriptId: () => id },
+    ScriptApp: { getScriptId: () => id, getService: () => ({ getUrl: () => options.webAppUrl || `https://script.google.com/macros/s/${id}/exec` }) },
+    HtmlService: {
+      createHtmlOutputFromFile: () => ({ getContent: () => readFileSync(new URL('../gas/standalone/Index.html', import.meta.url), 'utf8') }),
+      createHtmlOutput: html => ({ getContent: () => html, setTitle() { return this; }, addMetaTag() { return this; } }),
+    },
     PropertiesService: {
       getScriptProperties: () => ({
         getProperty: (k) => props.get(k),
@@ -162,7 +167,7 @@ export function createGasHarness(
     },
   });
   vm.runInContext(source, context);
-  context.setupTeacherSign();
+  context.setupTeacherSign_();
   return {
     context,
     props,
@@ -182,6 +187,7 @@ export function createGasHarness(
           .doPost({ postData: { contents: JSON.stringify(request) } })
           .getContent(),
       ),
+    rpc: request => JSON.parse(JSON.stringify(context.teacherSignRpc(request))),
   };
 }
 export function gasFetch(schools, calls = []) {

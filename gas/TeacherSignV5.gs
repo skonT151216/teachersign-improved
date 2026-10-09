@@ -1,7 +1,8 @@
-// TeacherSign Google Apps Script server v5.0.0
-// Paste this file into Apps Script, run setupTeacherSign once, then deploy as a web app.
+// TeacherSign Google Apps Script server v5.1.0
+// Install Code.gs AND Index.html from the GAS ZIP, run setupTeacherSign_ in the
+// Apps Script editor, then deploy the web app to execute as the installer.
 
-const SERVER_VERSION = "5.0.0";
+const SERVER_VERSION = "5.1.0";
 const DB_FILENAME = "TrainingApp_DB.json";
 const SIG_SHEET_FILENAME = "TrainingApp_Signatures";
 const SIG_SHEET_TAB = "signatures";
@@ -19,22 +20,22 @@ const SIG_HEADERS = [
   "timestamp",
 ];
 
-function setupTeacherSign() {
+function setupTeacherSign_() {
   const properties = PropertiesService.getScriptProperties();
   let adminKey = properties.getProperty(ADMIN_KEY_PROPERTY);
   if (!adminKey) {
-    adminKey = createSecureToken();
+    adminKey = createSecureToken_();
     properties.setProperty(ADMIN_KEY_PROPERTY, adminKey);
   }
-  initializeSchoolStorage();
-  getStoredData();
-  getSignatureSheet();
+  initializeSchoolStorage_();
+  getStoredData_();
+  getSignatureSheet_();
   console.log("관리자 연결키: " + adminKey);
   return "관리자 연결키: " + adminKey;
 }
 
-function resetTeacherSignAdminKey() {
-  const adminKey = createSecureToken();
+function resetTeacherSignAdminKey_() {
+  const adminKey = createSecureToken_();
   PropertiesService.getScriptProperties().setProperty(
     ADMIN_KEY_PROPERTY,
     adminKey,
@@ -44,13 +45,47 @@ function resetTeacherSignAdminKey() {
 }
 
 function doGet(e) {
-  return handleRequest(e, "GET");
+  if (e && e.parameter && e.parameter.action) return handleRequest_(e, "GET");
+  return renderTeacherSign_(e || { parameter: {} });
 }
 function doPost(e) {
-  return handleRequest(e, "POST");
+  return handleRequest_(e, "POST");
 }
 
-function handleRequest(e, method) {
+function renderTeacherSign_(e) {
+  const params = {};
+  ['sessionId', 'token', 'endpoint'].forEach(function (key) {
+    const value = e.parameter && e.parameter[key];
+    if (typeof value === 'string' && value.length <= 500) params[key] = value;
+  });
+  const boot = JSON.stringify({
+    school: ScriptApp.getScriptId(),
+    webAppUrl: ScriptApp.getService().getUrl(),
+    params: params,
+    serverVersion: SERVER_VERSION,
+  }).replace(/</g, '\\u003c').replace(/>/g, '\\u003e').replace(/&/g, '\\u0026').replace(/\u2028/g, '\\u2028').replace(/\u2029/g, '\\u2029');
+  const html = HtmlService.createHtmlOutputFromFile('Index').getContent();
+  if (html.indexOf('"__TEACHERSIGN_BOOTSTRAP_JSON__"') < 0) throw new Error('Index HTML을 같은 버전으로 교체하세요.');
+  return HtmlService.createHtmlOutput(html.replace('"__TEACHERSIGN_BOOTSTRAP_JSON__"', function () { return boot; })).setTitle('교직원 연수 등록부').addMetaTag('viewport', 'width=device-width, initial-scale=1');
+}
+
+// This is the only browser RPC entry. All storage/auth helpers end in _ and
+// cannot be called directly with google.script.run.
+function teacherSignRpc(request) {
+  try {
+    if (!request || typeof request !== 'object' || Array.isArray(request) || JSON.stringify(request).length > 2000000)
+      throw new Error('[ERR-JSON] 요청 형식과 크기를 확인하세요.');
+    const allowed = ['info', 'bootstrap', 'challenge', 'login', 'session', 'logout', 'connection', 'account', 'accountSalt', 'accountUpdate', 'admin', 'participant'];
+    if (allowed.indexOf(request.operation) < 0) throw new Error('[ERR-ACTION] 허용되지 않는 요청입니다.');
+    // No URL, school ID or function name from the caller selects a storage.
+    const result = schoolGateway_(request);
+    return JSON.parse(result.getContent());
+  } catch (error) {
+    return { status: 'error', message: normalizeError_(error) };
+  }
+}
+
+function handleRequest_(e, method) {
   try {
     let request = {};
     if (method === 'POST' && e.postData && e.postData.contents) {
@@ -61,63 +96,63 @@ function handleRequest(e, method) {
     const action = request.action || 'healthCheck';
     if (action === 'schoolGateway') {
       if (method !== 'POST') throw new Error('[ERR-METHOD] POST 요청이 필요합니다.');
-      return schoolGateway(request);
+      return schoolGateway_(request);
     }
     if (action === 'healthCheck') {
       const props = PropertiesService.getScriptProperties();
-      return responseJSON({ status: 'success', data: { serverVersion: SERVER_VERSION, storageReady: Boolean(props.getProperty('TEACHERSIGN_DB_FILE_ID') && props.getProperty('TEACHERSIGN_AUTH_FILE_ID') && props.getProperty('TEACHERSIGN_SIGNATURE_FILE_ID')) } });
+      return responseJSON_({ status: 'success', data: { serverVersion: SERVER_VERSION, storageReady: Boolean(props.getProperty('TEACHERSIGN_DB_FILE_ID') && props.getProperty('TEACHERSIGN_AUTH_FILE_ID') && props.getProperty('TEACHERSIGN_SIGNATURE_FILE_ID')) } });
     }
     // v5 accepts school sessions only; the bootstrap key cannot bypass login via v4 routes.
     throw new Error('[ERR-ACTION] 학교별 v5 요청 경로를 사용하세요.');
   } catch (error) {
-    return responseJSON({ status: 'error', message: normalizeError(error) });
+    return responseJSON_({ status: 'error', message: normalizeError_(error) });
   }
 }
 
-function requireAdmin(candidate) {
+function requireAdmin_(candidate) {
   const saved =
     PropertiesService.getScriptProperties().getProperty(ADMIN_KEY_PROPERTY);
   if (!saved)
     throw new Error(
-      "[ERR-ADMIN-SETUP] Apps Script 편집기에서 setupTeacherSign 함수를 먼저 실행하세요.",
+      "[ERR-ADMIN-SETUP] Apps Script 편집기에서 setupTeacherSign_ 함수를 먼저 실행하세요.",
     );
   if (!candidate || String(candidate) !== saved)
     throw new Error("[ERR-ADMIN-KEY] 관리자 연결키가 일치하지 않습니다.");
 }
 
-function getAdminSessionsResponse() {
-  const lock = teacherSignLock();
+function getAdminSessionsResponse_() {
+  const lock = teacherSignLock_();
   lock.waitLock(20000);
   try {
-    const db = getStoredData();
-    if (ensureParticipantTokens(db)) saveData(db);
-    return responseJSON({ status: "success", data: getMergedSessions(db) });
+    const db = getStoredData_();
+    if (ensureParticipantTokens_(db)) saveData_(db);
+    return responseJSON_({ status: "success", data: getMergedSessions_(db) });
   } finally {
     lock.releaseLock();
   }
 }
 
-function getParticipantSessionResponse(request) {
-  const db = getStoredData();
-  const session = findSession(db, request.sessionId);
-  validateParticipantToken(session, request.participantToken);
+function getParticipantSessionResponse_(request) {
+  const db = getStoredData_();
+  const session = findSession_(db, request.sessionId);
+  validateParticipantToken_(session, request.participantToken);
   const authRequired = Boolean(session.authCode);
   const authVerified =
     !authRequired ||
     String(request.authCode || "") === String(session.authCode);
-  return responseJSON({
+  return responseJSON_({
     status: "success",
-    data: toParticipantSession(session, db, authRequired, authVerified),
+    data: toParticipantSession_(session, db, authRequired, authVerified),
   });
 }
 
-function addParticipantSignatureResponse(request) {
-  const lock = teacherSignLock();
+function addParticipantSignatureResponse_(request) {
+  const lock = teacherSignLock_();
   lock.waitLock(28000);
   try {
-    const db = getStoredData();
-    const anchor = findSession(db, request.sessionId);
-    validateParticipantToken(anchor, request.participantToken);
+    const db = getStoredData_();
+    const anchor = findSession_(db, request.sessionId);
+    validateParticipantToken_(anchor, request.participantToken);
     if (
       anchor.authCode &&
       String(request.authCode || "") !== String(anchor.authCode)
@@ -125,22 +160,22 @@ function addParticipantSignatureResponse(request) {
       throw new Error(
         "[ERR-PARTICIPANT-CODE] 참여 인증번호가 일치하지 않습니다.",
       );
-    validateSignature(request.signature);
-    const safeSignature = normalizeParticipantSignature(
+    validateSignature_(request.signature);
+    const safeSignature = normalizeParticipantSignature_(
       anchor,
       request.signature,
     );
-    const targets = getRelatedSessions(db, anchor).filter((session) =>
-      canParticipantSign(session, safeSignature),
+    const targets = getRelatedSessions_(db, anchor).filter((session) =>
+      canParticipantSign_(session, safeSignature),
     );
     if (!targets.length)
       throw new Error(
         "[ERR-PARTICIPANT-01] 서명 대상 명단에서 사용자를 찾지 못했습니다.",
       );
 
-    const signatureMap = getSignaturesGroupedBySession();
+    const signatureMap = getSignaturesGroupedBySession_();
     targets.forEach((session) => {
-      const merged = mergeSignatures(
+      const merged = mergeSignatures_(
         session.signatures,
         signatureMap[session.id],
         session.staffList,
@@ -151,7 +186,7 @@ function addParticipantSignatureResponse(request) {
       );
       if (
         !alreadySigned &&
-        uniqueSignatures(merged).length >= Number(session.maxParticipants || 0)
+        uniqueSignatures_(merged).length >= Number(session.maxParticipants || 0)
       )
         throw new Error(
           "[ERR-FULL-01] 참가 가능 인원을 초과한 연수가 포함되어 있습니다.",
@@ -159,10 +194,10 @@ function addParticipantSignatureResponse(request) {
     });
 
     const targetIds = targets.map((session) => session.id);
-    removeLegacySignatures(db, targetIds, safeSignature.staffId);
-    saveData(db);
-    upsertSignatureRowsUnlocked(targetIds, safeSignature);
-    return responseJSON({
+    removeLegacySignatures_(db, targetIds, safeSignature.staffId);
+    saveData_(db);
+    upsertSignatureRowsUnlocked_(targetIds, safeSignature);
+    return responseJSON_({
       status: "success",
       data: { updatedCount: targetIds.length },
     });
@@ -171,19 +206,19 @@ function addParticipantSignatureResponse(request) {
   }
 }
 
-function createSessionResponse(incoming) {
-  incoming = validateSchoolTraining(incoming);
-  const lock = teacherSignLock();
+function createSessionResponse_(incoming) {
+  incoming = validateSchoolTraining_(incoming);
+  const lock = teacherSignLock_();
   lock.waitLock(28000);
   try {
-    const db = getStoredData();
+    const db = getStoredData_();
     if (!db.sessions) db.sessions = [];
-    const existing = findSession(db, incoming.id, false);
+    const existing = findSession_(db, incoming.id, false);
     const stored = Object.assign({}, incoming, {
       participantToken:
         existing && existing.participantToken
           ? existing.participantToken
-          : createSecureToken(),
+          : createSecureToken_(),
       signatures:
         existing && Array.isArray(existing.signatures)
           ? existing.signatures
@@ -191,8 +226,8 @@ function createSessionResponse(incoming) {
     });
     db.sessions = db.sessions.filter((session) => session.id !== stored.id);
     db.sessions.push(stored);
-    saveData(db);
-    return responseJSON({
+    saveData_(db);
+    return responseJSON_({
       status: "success",
       data: { participantToken: stored.participantToken },
     });
@@ -201,36 +236,36 @@ function createSessionResponse(incoming) {
   }
 }
 
-function deleteSessionResponse(sessionId) {
-  const lock = teacherSignLock();
+function deleteSessionResponse_(sessionId) {
+  const lock = teacherSignLock_();
   lock.waitLock(28000);
   try {
-    const db = getStoredData();
+    const db = getStoredData_();
     db.sessions = (db.sessions || []).filter(
       (session) => session.id !== sessionId,
     );
-    saveData(db);
-    removeSignatureRowsUnlocked([sessionId], null);
-    return responseJSON({ status: "success" });
+    saveData_(db);
+    removeSignatureRowsUnlocked_([sessionId], null);
+    return responseJSON_({ status: "success" });
   } finally {
     lock.releaseLock();
   }
 }
 
-function addAdminSignatureBatchResponse(sessionIds, signature) {
-  validateSignature(signature);
-  const lock = teacherSignLock();
+function addAdminSignatureBatchResponse_(sessionIds, signature) {
+  validateSignature_(signature);
+  const lock = teacherSignLock_();
   lock.waitLock(28000);
   try {
-    const db = getStoredData();
+    const db = getStoredData_();
     const validIds = (db.sessions || []).map((session) => session.id);
     const targets = sessionIds.filter((id) => validIds.indexOf(id) >= 0);
     if (!targets.length)
       throw new Error("[ERR-SESSION-02] 서명할 연수를 찾지 못했습니다.");
-    removeLegacySignatures(db, targets, signature.staffId);
-    saveData(db);
-    upsertSignatureRowsUnlocked(targets, signature);
-    return responseJSON({
+    removeLegacySignatures_(db, targets, signature.staffId);
+    saveData_(db);
+    upsertSignatureRowsUnlocked_(targets, signature);
+    return responseJSON_({
       status: "success",
       data: { updatedCount: targets.length },
     });
@@ -239,15 +274,15 @@ function addAdminSignatureBatchResponse(sessionIds, signature) {
   }
 }
 
-function removeSignatureResponse(sessionIds, staffId) {
-  const lock = teacherSignLock();
+function removeSignatureResponse_(sessionIds, staffId) {
+  const lock = teacherSignLock_();
   lock.waitLock(28000);
   try {
-    const db = getStoredData();
-    const legacyRemoved = removeLegacySignatures(db, sessionIds, staffId);
-    if (legacyRemoved) saveData(db);
-    const sheetRemoved = removeSignatureRowsUnlocked(sessionIds, staffId);
-    return responseJSON({
+    const db = getStoredData_();
+    const legacyRemoved = removeLegacySignatures_(db, sessionIds, staffId);
+    if (legacyRemoved) saveData_(db);
+    const sheetRemoved = removeSignatureRowsUnlocked_(sessionIds, staffId);
+    return responseJSON_({
       status: "success",
       data: { removedCount: legacyRemoved + sheetRemoved },
     });
@@ -256,8 +291,8 @@ function removeSignatureResponse(sessionIds, staffId) {
   }
 }
 
-function toParticipantSession(session, db, authRequired, authVerified) {
-  const related = getRelatedSessions(db, session);
+function toParticipantSession_(session, db, authRequired, authVerified) {
+  const related = getRelatedSessions_(db, session);
   const view = {
     id: session.id,
     type: session.type,
@@ -277,8 +312,8 @@ function toParticipantSession(session, db, authRequired, authVerified) {
   };
   if (!authVerified) return view;
   if (session.type === "school") {
-    const signatureMap = getSignaturesGroupedBySession();
-    const merged = mergeSignatures(
+    const signatureMap = getSignaturesGroupedBySession_();
+    const merged = mergeSignatures_(
       session.signatures,
       signatureMap[session.id],
       session.staffList,
@@ -288,7 +323,7 @@ function toParticipantSession(session, db, authRequired, authVerified) {
       name: staff.name,
       department: staff.department,
     }));
-    view.signatures = uniqueSignatures(merged).map((signature) => ({
+    view.signatures = uniqueSignatures_(merged).map((signature) => ({
       staffId: signature.staffId,
       staffName: signature.staffName,
       department: signature.department,
@@ -299,12 +334,12 @@ function toParticipantSession(session, db, authRequired, authVerified) {
   return view;
 }
 
-function getRelatedSessions(db, anchor) {
+function getRelatedSessions_(db, anchor) {
   return (db.sessions || []).filter(
     (session) => session.date === anchor.date && session.type === anchor.type,
   );
 }
-function canParticipantSign(session, signature) {
+function canParticipantSign_(session, signature) {
   return (
     session.type !== "school" ||
     (session.staffList || []).some(
@@ -313,7 +348,7 @@ function canParticipantSign(session, signature) {
   );
 }
 
-function normalizeParticipantSignature(anchor, signature) {
+function normalizeParticipantSignature_(anchor, signature) {
   if (anchor.type !== "school") return signature;
   const staff = (anchor.staffList || []).find(
     (item) => String(item.id) === String(signature.staffId),
@@ -329,7 +364,7 @@ function normalizeParticipantSignature(anchor, signature) {
   });
 }
 
-function validateParticipantToken(session, candidate) {
+function validateParticipantToken_(session, candidate) {
   if (
     !session.participantToken ||
     !candidate ||
@@ -340,7 +375,7 @@ function validateParticipantToken(session, candidate) {
     );
 }
 
-function validateSignature(signature) {
+function validateSignature_(signature) {
   if (
     !signature ||
     !signature.staffId ||
@@ -360,11 +395,11 @@ function validateSignature(signature) {
     throw new Error("[ERR-SIGNATURE-02] 서명 이미지와 기록 형식을 확인하세요.");
 }
 
-function getMergedSessions(db) {
-  const signatureMap = getSignaturesGroupedBySession();
+function getMergedSessions_(db) {
+  const signatureMap = getSignaturesGroupedBySession_();
   return (db.sessions || []).map((session) =>
     Object.assign({}, session, {
-      signatures: mergeSignatures(
+      signatures: mergeSignatures_(
         session.signatures,
         signatureMap[session.id],
         session.staffList,
@@ -373,9 +408,9 @@ function getMergedSessions(db) {
   );
 }
 
-function mergeSignatures(legacySignatures, sheetSignatures, staffList) {
+function mergeSignatures_(legacySignatures, sheetSignatures, staffList) {
   const legacy = legacySignatures || [];
-  const fromSheet = uniqueSignatures(sheetSignatures || []);
+  const fromSheet = uniqueSignatures_(sheetSignatures || []);
   const sheetStaffIds = Object.create(null);
   fromSheet.forEach((signature) => {
     sheetStaffIds[signature.staffId] = true;
@@ -393,10 +428,10 @@ function mergeSignatures(legacySignatures, sheetSignatures, staffList) {
       signature.department = staffById[signature.staffId].department;
     }
   });
-  return uniqueSignatures(merged);
+  return uniqueSignatures_(merged);
 }
 
-function uniqueSignatures(signatures) {
+function uniqueSignatures_(signatures) {
   const latest = {};
   (signatures || []).forEach((signature) => {
     const key = String(signature.staffId || "");
@@ -410,18 +445,18 @@ function uniqueSignatures(signatures) {
   return Object.keys(latest).map((key) => latest[key]);
 }
 
-function ensureParticipantTokens(db) {
+function ensureParticipantTokens_(db) {
   let changed = false;
   (db.sessions || []).forEach((session) => {
     if (!session.participantToken) {
-      session.participantToken = createSecureToken();
+      session.participantToken = createSecureToken_();
       changed = true;
     }
   });
   return changed;
 }
 
-function removeLegacySignatures(db, sessionIds, staffId) {
+function removeLegacySignatures_(db, sessionIds, staffId) {
   let removed = 0;
   (db.sessions || []).forEach((session) => {
     if (sessionIds.indexOf(session.id) < 0) return;
@@ -434,8 +469,8 @@ function removeLegacySignatures(db, sessionIds, staffId) {
   return removed;
 }
 
-function getStoredData() {
-  const file = schoolFile("TEACHERSIGN_DB_FILE_ID");
+function getStoredData_() {
+  const file = schoolFile_("TEACHERSIGN_DB_FILE_ID");
   const content = file.getBlob().getDataAsString();
   if (!content || !content.trim()) return { sessions: [] };
   try {
@@ -450,18 +485,18 @@ function getStoredData() {
   }
 }
 
-function saveData(data) {
-  schoolFile("TEACHERSIGN_DB_FILE_ID").setContent(JSON.stringify(data));
+function saveData_(data) {
+  schoolFile_("TEACHERSIGN_DB_FILE_ID").setContent(JSON.stringify(data));
 }
 
-function findSession(db, sessionId, required) {
+function findSession_(db, sessionId, required) {
   const session = (db.sessions || []).find((item) => item.id === sessionId);
   if (!session && required !== false)
     throw new Error("[ERR-SESSION-03] 연수 정보를 찾지 못했습니다.");
   return session;
 }
 
-function getSignatureSheet() {
+function getSignatureSheet_() {
   const spreadsheet = SpreadsheetApp.openById(
     PropertiesService.getScriptProperties().getProperty(
       "TEACHERSIGN_SIGNATURE_FILE_ID",
@@ -481,8 +516,8 @@ function getSignatureSheet() {
   return sheet;
 }
 
-function getSignaturesGroupedBySession() {
-  const sheet = getSignatureSheet();
+function getSignaturesGroupedBySession_() {
+  const sheet = getSignatureSheet_();
   const lastRow = sheet.getLastRow();
   const map = Object.create(null);
   if (lastRow < 2) return map;
@@ -508,9 +543,9 @@ function getSignaturesGroupedBySession() {
   return map;
 }
 
-function upsertSignatureRowsUnlocked(sessionIds, signature) {
-  removeSignatureRowsUnlocked(sessionIds, signature.staffId);
-  const sheet = getSignatureSheet();
+function upsertSignatureRowsUnlocked_(sessionIds, signature) {
+  removeSignatureRowsUnlocked_(sessionIds, signature.staffId);
+  const sheet = getSignatureSheet_();
   const rows = sessionIds.map((sessionId) => [
     sessionId,
     signature.staffId || "",
@@ -537,8 +572,8 @@ function upsertSignatureRowsUnlocked(sessionIds, signature) {
       );
 }
 
-function removeSignatureRowsUnlocked(sessionIds, staffId) {
-  const sheet = getSignatureSheet();
+function removeSignatureRowsUnlocked_(sessionIds, staffId) {
+  const sheet = getSignatureSheet_();
   const lastRow = sheet.getLastRow();
   if (lastRow < 2) return 0;
   const data = sheet.getRange(2, 1, lastRow - 1, 2).getValues();
@@ -555,19 +590,19 @@ function removeSignatureRowsUnlocked(sessionIds, staffId) {
   return removed;
 }
 
-function createSecureToken() {
+function createSecureToken_() {
   return (
     Utilities.getUuid().replace(/-/g, "") +
     Utilities.getUuid().replace(/-/g, "")
   );
 }
-function normalizeError(error) {
+function normalizeError_(error) {
   const message = error && error.message ? error.message : String(error);
   return message.indexOf("[ERR-") === 0
     ? message
     : "[ERR-SCRIPT-01] 서버 처리에 실패했습니다. 설치 담당자가 실행 기록을 확인하세요.";
 }
-function responseJSON(data) {
+function responseJSON_(data) {
   return ContentService.createTextOutput(JSON.stringify(data)).setMimeType(
     ContentService.MimeType.JSON,
   );
@@ -576,12 +611,12 @@ function responseJSON(data) {
 // v5 school installation: persistent authentication lives in this script's Drive.
 // New installations only. Existing v4 files are never searched or overwritten.
 let schoolWriteLocked = false;
-function teacherSignLock() {
+function teacherSignLock_() {
   if (schoolWriteLocked)
     return { waitLock: function () {}, releaseLock: function () {} };
   return LockService.getScriptLock();
 }
-function initializeSchoolStorage() {
+function initializeSchoolStorage_() {
   const lock = LockService.getScriptLock();
   lock.waitLock(28000);
   try {
@@ -626,17 +661,17 @@ function initializeSchoolStorage() {
     lock.releaseLock();
   }
 }
-function schoolFile(property) {
+function schoolFile_(property) {
   const id = PropertiesService.getScriptProperties().getProperty(property);
   if (!id)
     throw new Error(
-      "[ERR-SCHOOL-SETUP] 새 시험용 GAS에서 setupTeacherSign을 먼저 실행하세요.",
+      "[ERR-SCHOOL-SETUP] Apps Script 편집기에서 setupTeacherSign을 먼저 실행하세요.",
     );
   return DriveApp.getFileById(id);
 }
-function readSchoolAuth() {
+function readSchoolAuth_() {
   const state = JSON.parse(
-    schoolFile("TEACHERSIGN_AUTH_FILE_ID").getBlob().getDataAsString(),
+    schoolFile_("TEACHERSIGN_AUTH_FILE_ID").getBlob().getDataAsString(),
   );
   const now = Date.now();
   Object.keys(state.sessions).forEach((key) => {
@@ -651,22 +686,22 @@ function readSchoolAuth() {
   );
   return state;
 }
-function saveSchoolAuth(state) {
-  schoolFile("TEACHERSIGN_AUTH_FILE_ID").setContent(JSON.stringify(state));
+function saveSchoolAuth_(state) {
+  schoolFile_("TEACHERSIGN_AUTH_FILE_ID").setContent(JSON.stringify(state));
 }
-function schoolHex(bytes) {
+function schoolHex_(bytes) {
   return bytes
     .map((b) => ("0" + ((b + 256) % 256).toString(16)).slice(-2))
     .join("");
 }
-function schoolBytes(hex) {
+function schoolBytes_(hex) {
   return hex.match(/../g).map((pair) => {
     const n = parseInt(pair, 16);
     return n > 127 ? n - 256 : n;
   });
 }
-function schoolDigest(value) {
-  return schoolHex(
+function schoolDigest_(value) {
+  return schoolHex_(
     Utilities.computeDigest(
       Utilities.DigestAlgorithm.SHA_256,
       String(value),
@@ -674,7 +709,7 @@ function schoolDigest(value) {
     ),
   );
 }
-function schoolEqual(a, b) {
+function schoolEqual_(a, b) {
   if (typeof a !== "string" || typeof b !== "string" || a.length !== b.length)
     return false;
   let difference = 0;
@@ -682,13 +717,13 @@ function schoolEqual(a, b) {
     difference |= a.charCodeAt(i) ^ b.charCodeAt(i);
   return difference === 0;
 }
-function validVerifier(value) {
+function validVerifier_(value) {
   return (
     typeof value === "string" &&
     /^scrypt\$32768\$8\$3\$[a-f0-9]{32}\$[a-f0-9]{128}$/.test(value)
   );
 }
-function accountView(account) {
+function accountView_(account) {
   return {
     username: account.username,
     label: account.label,
@@ -696,34 +731,34 @@ function accountView(account) {
     demo: false,
   };
 }
-function sessionView(session) {
+function sessionView_(session) {
   return {
     username: session.username,
     csrf: session.csrf,
     expiresAt: session.expiresAt,
   };
 }
-function requireSchoolSession(state, request, requireCsrf) {
+function requireSchoolSession_(state, request, requireCsrf) {
   if (
     typeof request.sessionToken !== "string" ||
     !/^[A-Za-z0-9_-]{43}$/.test(request.sessionToken)
   )
     throw new Error("[ERR-AUTH] 학교 관리자 로그인이 필요합니다.");
-  const session = state.sessions[schoolDigest(request.sessionToken)];
+  const session = state.sessions[schoolDigest_(request.sessionToken)];
   if (!session || !state.account || session.revision !== state.account.revision)
     throw new Error("[ERR-AUTH] 학교 관리자 세션이 만료되었습니다.");
-  if (requireCsrf && !schoolEqual(session.csrf, request.csrf))
+  if (requireCsrf && !schoolEqual_(session.csrf, request.csrf))
     throw new Error("[ERR-CSRF] 로그인 상태를 확인하세요.");
   // Background session checks must not keep an idle administrator logged in.
   if (requireCsrf) session.lastSeenAt = Date.now();
   return session;
 }
-function schoolGateway(request) {
+function schoolGateway_(request) {
   const lock = LockService.getScriptLock();
   lock.waitLock(28000);
   try {
     schoolWriteLocked = true;
-    const state = readSchoolAuth();
+    const state = readSchoolAuth_();
     const op = request.operation;
     const now = Date.now();
     let data;
@@ -735,13 +770,13 @@ function schoolGateway(request) {
         storageReady: true,
       };
     } else if (op === "bootstrap") {
-      requireAdmin(request.setupKey);
+      requireAdmin_(request.setupKey);
       if (state.account)
         throw new Error(
           "[ERR-ACCOUNT-EXISTS] 이 학교에는 관리자 계정이 있습니다. 로그인하세요.",
         );
       if (
-        !validVerifier(request.passwordHash) ||
+        !validVerifier_(request.passwordHash) ||
         typeof request.username !== "string" ||
         !/^[A-Za-z0-9_.@-]{3,64}$/.test(request.username) ||
         typeof request.label !== "string" ||
@@ -755,7 +790,7 @@ function schoolGateway(request) {
         passwordHash: request.passwordHash,
         revision: 1,
       };
-      data = accountView(state.account);
+      data = accountView_(state.account);
     } else if (op === "challenge") {
       if (!state.account)
         throw new Error(
@@ -770,7 +805,7 @@ function schoolGateway(request) {
         );
       bucket.count++;
       state.attempts.login = bucket;
-      const nonce = createSecureToken();
+      const nonce = createSecureToken_();
       state.challenges[nonce] = {
         username: request.username,
         revision: state.account.revision,
@@ -785,7 +820,7 @@ function schoolGateway(request) {
       const challenge = state.challenges[request.nonce];
       delete state.challenges[request.nonce];
       // Consume even a failed proof; replay cannot issue another session.
-      saveSchoolAuth(state);
+      saveSchoolAuth_(state);
       if (
         !challenge ||
         !state.account ||
@@ -804,13 +839,13 @@ function schoolGateway(request) {
         request.csrf,
       ]);
       const verifier = state.account.passwordHash.split("$")[5];
-      const proof = schoolHex(
+      const proof = schoolHex_(
         Utilities.computeHmacSha256Signature(
           Utilities.newBlob(message).getBytes(),
-          schoolBytes(verifier),
+          schoolBytes_(verifier),
         ),
       );
-      if (!schoolEqual(proof, request.proof))
+      if (!schoolEqual_(proof, request.proof))
         throw new Error("[ERR-LOGIN] 아이디 또는 암호가 일치하지 않습니다.");
       const keys = Object.keys(state.sessions);
       if (keys.length >= 100)
@@ -829,7 +864,7 @@ function schoolGateway(request) {
       };
       state.sessions[request.tokenHash] = session;
       // The persisted account-wide bucket also bounds successful repeated logins.
-      data = sessionView(session);
+      data = sessionView_(session);
     } else if (op === "participant") {
       if (!state.account)
         throw new Error(
@@ -848,17 +883,17 @@ function schoolGateway(request) {
       if (++bucket.count > 300)
         throw new Error("[ERR-LIMIT] 잠시 후 다시 시도하세요.");
       state.attempts.participant = bucket;
-      saveSchoolAuth(state);
+      saveSchoolAuth_(state);
       const payload = request.payload || {};
       const callback = () =>
         request.name === "getParticipantSession"
-          ? getParticipantSessionResponse(payload)
-          : addParticipantSignatureResponse(payload);
-      return schoolActionReceipt(
+          ? getParticipantSessionResponse_(payload)
+          : addParticipantSignatureResponse_(payload);
+      return schoolActionReceipt_(
         state,
         request,
         "participant:" +
-          schoolDigest(
+          schoolDigest_(
             JSON.stringify([
               payload.sessionId,
               payload.participantToken,
@@ -868,12 +903,12 @@ function schoolGateway(request) {
         callback,
       );
     } else {
-      const session = requireSchoolSession(state, request, op !== "session");
-      if (op === "session") data = sessionView(session);
+      const session = requireSchoolSession_(state, request, op !== "session");
+      if (op === "session") data = sessionView_(session);
       else if (op === "logout") {
-        delete state.sessions[schoolDigest(request.sessionToken)];
+        delete state.sessions[schoolDigest_(request.sessionToken)];
         data = { loggedOut: true };
-      } else if (op === "account") data = accountView(state.account);
+      } else if (op === "account") data = accountView_(state.account);
       else if (op === "connection")
         data = {
           configured: true,
@@ -885,25 +920,25 @@ function schoolGateway(request) {
       else if (op === "accountUpdate") {
         // Current-password proof obtained separately, bound to this session and revision.
         if (
-          !validVerifier(request.passwordHash) ||
+          !validVerifier_(request.passwordHash) ||
           !/^[A-Za-z0-9_.@-]{3,64}$/.test(request.username || "") ||
           request.revision !== state.account.revision
         )
           throw new Error("[ERR-CONFLICT] 계정 설정을 다시 확인하세요.");
         const message = JSON.stringify([
           "accountUpdate",
-          schoolDigest(request.sessionToken),
+          schoolDigest_(request.sessionToken),
           state.account.revision,
           request.username,
           request.passwordHash,
         ]);
-        const expected = schoolHex(
+        const expected = schoolHex_(
           Utilities.computeHmacSha256Signature(
             Utilities.newBlob(message).getBytes(),
-            schoolBytes(state.account.passwordHash.split("$")[5]),
+            schoolBytes_(state.account.passwordHash.split("$")[5]),
           ),
         );
-        if (!schoolEqual(expected, request.proof))
+        if (!schoolEqual_(expected, request.proof))
           throw new Error("[ERR-ACCOUNT] 현재 암호를 확인하세요.");
         state.account.username = request.username;
         state.account.passwordHash = request.passwordHash;
@@ -911,7 +946,7 @@ function schoolGateway(request) {
         state.sessions = {};
         state.challenges = {};
         state.attempts = {};
-        data = Object.assign(accountView(state.account), {
+        data = Object.assign(accountView_(state.account), {
           loginRequired: true,
         });
       } else if (op === "accountSalt")
@@ -921,39 +956,39 @@ function schoolGateway(request) {
         };
       else if (op === "admin") {
         const callbacks = {
-          getAdminSessions: () => getAdminSessionsResponse(),
-          createSession: () => createSessionResponse(request.payload.session),
-          deleteSession: () => deleteSessionResponse(request.payload.sessionId),
+          getAdminSessions: () => getAdminSessionsResponse_(),
+          createSession: () => createSessionResponse_(request.payload.session),
+          deleteSession: () => deleteSessionResponse_(request.payload.sessionId),
           addSignatureBatch: () =>
-            addAdminSignatureBatchResponse(
+            addAdminSignatureBatchResponse_(
               request.payload.sessionIds || [],
               request.payload.signature,
             ),
           removeSignatureBatch: () =>
-            removeSignatureResponse(
+            removeSignatureResponse_(
               request.payload.sessionIds || [],
               request.payload.staffId,
             ),
         };
         if (!Object.prototype.hasOwnProperty.call(callbacks, request.name))
           throw new Error("[ERR-ACTION] 관리자 작업을 확인하세요.");
-        saveSchoolAuth(state);
-        return schoolActionReceipt(
+        saveSchoolAuth_(state);
+        return schoolActionReceipt_(
           state,
           request,
-          "admin:" + schoolDigest(request.sessionToken),
+          "admin:" + schoolDigest_(request.sessionToken),
           callbacks[request.name],
         );
       } else throw new Error("[ERR-ACTION] 지원하지 않는 요청입니다.");
     }
-    saveSchoolAuth(state);
-    return responseJSON({ status: "success", data: data });
+    saveSchoolAuth_(state);
+    return responseJSON_({ status: "success", data: data });
   } finally {
     schoolWriteLocked = false;
     lock.releaseLock();
   }
 }
-function schoolActionReceipt(state, request, scope, callback) {
+function schoolActionReceipt_(state, request, scope, callback) {
   if (
     request.name === "getAdminSessions" ||
     request.name === "getParticipantSession"
@@ -961,15 +996,15 @@ function schoolActionReceipt(state, request, scope, callback) {
     return callback();
   if (!/^[A-Za-z0-9_-]{16,80}$/.test(request.requestId || ""))
     throw new Error("[ERR-RETRY] 요청 식별자가 필요합니다.");
-  const key = schoolDigest(scope + ":" + request.requestId);
-  const fingerprint = schoolDigest(
+  const key = schoolDigest_(scope + ":" + request.requestId);
+  const fingerprint = schoolDigest_(
     JSON.stringify([request.name, request.payload]),
   );
   const saved = state.receipts[key];
   if (saved) {
     if (saved.fingerprint !== fingerprint)
       throw new Error("[ERR-RETRY] 같은 요청 식별자의 내용이 다릅니다.");
-    return responseJSON(saved.result);
+    return responseJSON_(saved.result);
   }
   if (Object.keys(state.receipts).length >= 200)
     throw new Error("[ERR-LIMIT] 잠시 후 다시 시도하세요.");
@@ -981,12 +1016,12 @@ function schoolActionReceipt(state, request, scope, callback) {
       result: result,
       until: Date.now() + 300000,
     };
-    saveSchoolAuth(state);
+    saveSchoolAuth_(state);
   }
   return output;
 }
 
-function validateSchoolTraining(input) {
+function validateSchoolTraining_(input) {
   if (
     !input ||
     !/^[A-Za-z0-9_-]{1,100}$/.test(input.id || "") ||

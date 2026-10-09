@@ -1,4 +1,6 @@
 import { TrainingSession, Signature } from '../types';
+import { isGasStandalone } from './gasRuntime';
+import { gasRequest, clearGasSession } from './gasTransport';
 
 export interface AdminSession { username: string; csrf: string; expiresAt: number }
 export interface Connection { configured: boolean; provider: 'mock' | 'gas'; label: string; revision: number; participantEndpoint: string; setupMode?: 'basic' | 'google-demo' }
@@ -12,6 +14,7 @@ export const getSchoolScope = () => schoolScope;
 export function setSchoolScope(value: string) { clearPrivateSession(); schoolScope = value; }
 export function clearPrivateSession() {
   csrf = '';
+  clearGasSession();
   epoch++;
   pending.forEach(controller => controller.abort());
   pending.clear();
@@ -25,8 +28,20 @@ export async function request<T>(path: string, body?: unknown, write = false): P
   const currentEpoch = epoch;
   const key = write ? crypto.randomUUID() : '';
   pending.add(controller);
-  const timer = window.setTimeout(() => controller.abort(), 35_000);
+  const timer = window.setTimeout(() => controller.abort(), isGasStandalone() ? 90_000 : 35_000);
   try {
+    if (isGasStandalone()) {
+      try {
+        const result = await gasRequest(path, body, csrf, key, controller.signal);
+        if (currentEpoch !== epoch) throw new DOMException('Session changed', 'AbortError');
+        return result as T;
+      } catch (error) {
+        if ((error as Error).message.startsWith('[ERR-AUTH]') && path !== '/api/auth/login' && path !== '/api/auth/session') {
+          clearPrivateSession(); window.dispatchEvent(new Event('teachersign:unauthorized'));
+        }
+        throw error;
+      }
+    }
     // Network retries reuse the write ID; application errors are never retried.
     let response: Response;
     for (let attempt = 0; ; attempt++) {

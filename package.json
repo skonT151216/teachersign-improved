@@ -1,22 +1,26 @@
 {
   "name": "teachersign",
   "private": true,
-  "version": "5.0.0",
+  "version": "5.1.0",
   "type": "module",
   "homepage": "https://github.com/skonT151216/teachersign-improved",
   "scripts": {
-    "dev": "node server/school-dev.mjs",
+    "dev": "node server/gas-preview.mjs",
     "build": "vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "test": "node --test tests/*.test.mjs",
     "test:browser": "node tests/browser.mjs",
-    "dev:gas": "node server/school-dev.mjs",
+    "dev:gas": "node server/gas-preview.mjs",
     "dev:demo": "node server/dev.mjs",
     "test:browser:gas": "node tests/school-browser.mjs",
-    "test:browser:deployment": "node tests/deployment-smoke.mjs"
+    "test:browser:deployment": "node tests/deployment-smoke.mjs",
+    "build:gas": "node scripts/build-gas.mjs",
+    "test:browser:standalone": "node tests/gas-standalone-browser.mjs",
+    "dev:gateway": "node server/school-dev.mjs"
   },
   "dependencies": {
+    "@noble/hashes": "2.4.0",
     "autoprefixer": "^10.4.27",
     "esbuild": "^0.27.3",
     "html2pdf.js": "^0.14.0",
@@ -25,7 +29,8 @@
     "react": "^19.2.1",
     "react-dom": "^19.2.1",
     "tailwindcss": "^4.2.1",
-    "uuid": "^13.0.0"
+    "uuid": "^13.0.0",
+    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.2.1",
@@ -33,6 +38,7 @@
     "@types/qrcode": "^1.5.6",
     "@vitejs/plugin-react": "^5.0.0",
     "agent-browser": "^0.38.2",
+    "fflate": "0.8.2",
     "gh-pages": "^6.3.0",
     "playwright": "^1.63.0",
     "typescript": "~5.8.2",

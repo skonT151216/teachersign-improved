@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { request } from '../services/managedCloudService';
 import { APP_VERSION, compareVersions, DOWNLOAD_URL, fetchLatestUpdate, GITHUB_URL } from '../services/updateService.mjs';
+import { isGasStandalone } from '../services/gasRuntime';
 
 type Update = { appVersion: string; gasVersion: string; publishedAt: string; notes: string };
 export default function ProgramUpdates() {
@@ -58,8 +59,10 @@ export default function ProgramUpdates() {
           <p className="font-bold">{appUpdate || gasUpdate ? '새 업데이트가 있습니다.' : gasVersion ? '현재 화면과 학교 GAS는 최신 버전 이상입니다.' : '현재 화면은 최신 버전 이상입니다. 학교 GAS는 별도 확인이 필요합니다.'}</p>
           <p>GitHub 최신: 화면 v{latest.appVersion} · GAS v{latest.gasVersion} ({latest.publishedAt})</p>
           <p>{latest.notes}</p>
-          {appUpdate && <p>화면 버전은 공용 앱 운영 담당자가 새 버전을 배포한 뒤 새로고침하면 적용됩니다.</p>}
-          {gasUpdate && <p>학교 담당자가 아래 GitHub에서 새 GAS 코드를 받아 기존 v5 프로젝트의 코드를 교체하고, 배포 관리에서 새 버전으로 배포하세요. 기존 프로젝트·웹앱 주소와 스크립트 속성을 유지하며 관리자 계정을 다시 만들지 않습니다.</p>}
+          {(appUpdate || gasUpdate) && isGasStandalone() ? <p>설치 ZIP을 받아 같은 GAS 프로젝트의 Code.gs와 Index HTML을 함께 교체하고, 배포 관리 → 수정 → 새 버전으로 배포하세요. 기존 웹앱 주소·스크립트 속성을 유지하며 관리자 계정을 다시 만들지 않습니다.</p> : <>
+            {appUpdate && <p>화면 버전은 공용 앱 운영 담당자가 새 버전을 배포한 뒤 새로고침하면 적용됩니다.</p>}
+            {gasUpdate && <p>학교 담당자가 아래 GitHub에서 새 GAS 코드를 받아 기존 v5 프로젝트의 코드를 교체하고, 배포 관리에서 새 버전으로 배포하세요. 기존 프로젝트·웹앱 주소와 스크립트 속성을 유지하며 관리자 계정을 다시 만들지 않습니다.</p>}
+          </>}
           <p className="text-sm text-gray-600">확인 시각: {checkedAt} · GitHub 캐시로 최신 반영이 잠시 늦어질 수 있습니다.</p>
         </>}
       </div>
@@ -67,7 +70,7 @@ export default function ProgramUpdates() {
       {gasError && <p role="alert" className="text-red-700">{gasError}</p>}
       <div className="flex flex-wrap gap-4">
         <a href={GITHUB_URL} target="_blank" rel="noopener noreferrer" className="text-indigo-700 underline">GitHub에서 업데이트 확인</a>
-        <a href={DOWNLOAD_URL} target="_blank" rel="noopener noreferrer" className="text-indigo-700 underline">최신 프로그램 ZIP 다운로드</a>
+        <a href={DOWNLOAD_URL} target="_blank" rel="noopener noreferrer" className="text-indigo-700 underline">{isGasStandalone() ? 'GAS 설치 ZIP 다운로드' : '최신 프로그램 ZIP 다운로드'}</a>
         <a href={`${GITHUB_URL}/blob/main/Code.gs`} target="_blank" rel="noopener noreferrer" className="text-indigo-700 underline">최신 GAS 코드 보기</a>
       </div>
       <p className="text-sm text-gray-600">업데이트는 자동 설치되지 않습니다. 기존 v4 자료를 v5로 자동 이전하는 기능은 없으므로 v4 운영 프로젝트에 덮어쓰지 마세요.</p>

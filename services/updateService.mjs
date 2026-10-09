@@ -2,7 +2,7 @@ import installed from '../version.json' with { type: 'json' };
 
 export const APP_VERSION = installed.appVersion;
 export const GITHUB_URL = 'https://github.com/skonT151216/teachersign-improved';
-export const DOWNLOAD_URL = `${GITHUB_URL}/archive/refs/heads/main.zip`;
+export const DOWNLOAD_URL = `${GITHUB_URL}/releases/latest/download/TeacherSign-GAS.zip`;
 export const VERSION_URL = 'https://raw.githubusercontent.com/skonT151216/teachersign-improved/main/version.json';
 
 const versionPattern = /^(0|[1-9]\d{0,5})\.(0|[1-9]\d{0,5})\.(0|[1-9]\d{0,5})$/;

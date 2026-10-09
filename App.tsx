@@ -4,6 +4,8 @@ import { Staff, TrainingSession, ViewMode, Signature, CloudConfig, SessionType }
 import * as Storage from './services/storageService';
 import * as CloudService from './services/managedCloudService';
 import { APP_VERSION as PROGRAM_VERSION } from './services/updateService.mjs';
+import { getAppParams, getAppUrl, isGasStandalone } from './services/gasRuntime';
+import * as XLSX from 'xlsx';
 import SignaturePad from './components/SignaturePad';
 import PrintReport from './components/PrintReport';
 import ServerConnection from './components/ServerConnection';
@@ -17,8 +19,6 @@ import SignerView from './views/SignerView';
 
 // @ts-ignore
 import html2pdf from 'html2pdf.js';
-// Declare XLSX global from the CDN script
-declare var XLSX: any;
 
 
 // Simple ID generator
@@ -129,7 +129,7 @@ const App: React.FC = () => {
         let active = true;
         const initApp = async () => {
             resetBaseUrl();
-            const params = new URLSearchParams(window.location.search);
+            const params = getAppParams();
             const sessionId = params.get('sessionId');
             try {
                 if (sessionId) {
@@ -175,7 +175,7 @@ const App: React.FC = () => {
     }, [selectedSessionId, sessions]);
 
     const resetBaseUrl = () => {
-        let currentUrl = window.location.href.split('?')[0];
+        let currentUrl = getAppUrl();
         if (currentUrl.startsWith('blob:')) currentUrl = currentUrl.replace('blob:', '');
         if (currentUrl.endsWith('/')) currentUrl = currentUrl.slice(0, -1);
         setAppBaseUrl(currentUrl);
@@ -773,9 +773,9 @@ const App: React.FC = () => {
     };
 
     const getShareUrl = (sessionId: string) => {
-        const baseUrl = appBaseUrl || window.location.href.split('?')[0];
+        const baseUrl = appBaseUrl || getAppUrl();
         const session = sessions.find(item => item.id === sessionId);
-        if (cloudConfig.enabled) return `${baseUrl}?sessionId=${sessionId}&endpoint=${encodeURIComponent(cloudConfig.scriptUrl)}&token=${encodeURIComponent(session?.participantToken || '')}${CloudService.getSchoolScope() ? `&school=${encodeURIComponent(CloudService.getSchoolScope())}` : ''}`;
+        if (cloudConfig.enabled) return `${baseUrl}?sessionId=${sessionId}&endpoint=${encodeURIComponent(cloudConfig.scriptUrl)}&token=${encodeURIComponent(session?.participantToken || '')}${!isGasStandalone() && CloudService.getSchoolScope() ? `&school=${encodeURIComponent(CloudService.getSchoolScope())}` : ''}`;
         return `${baseUrl}?sessionId=${sessionId}`;
     };
 

@@ -1,0 +1,3 @@
+# Preserve meaningful whitespace in generated JavaScript and original license text.
+gas/standalone/Index.html linguist-generated=true -whitespace
+gas/standalone/THIRD-PARTY-LICENSES.txt linguist-vendored=true -whitespace
