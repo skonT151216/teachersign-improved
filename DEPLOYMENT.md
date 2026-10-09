@@ -1,10 +1,12 @@
 # 학교별 GAS 연동 시험 배포
 
+> 2026-10-09: Vercel은 시험용으로만 사용했으며 이후 학교 운영·공개 배포에는 사용하지 않습니다. 아래 주소·배포 결과·절차는 과거 시험 기록입니다. 기존 GitHub 저장소는 Public으로 전환했습니다. 현재 코드는 별도 웹 화면·Node API가 필요하며 GAS 단독 화면 배포본은 아닙니다.
+
 2026-10-09 갱신. 공용 Vercel 화면·중계와 학교별 GAS/Drive를 연결하는 시험판입니다. 기존 v4 운영 설치에는 적용하지 말고 새 GAS 프로젝트와 가상 연수로 시험하세요.
 
 ## 배포 결과
 
-### 공개 운영 주소 — 전환 완료
+### 과거 공개 시험 주소
 
 2026-10-09. 고정 운영 주소는 https://teachersign-schools-test-20261003.vercel.app 이다. Production에는 별도의 `TEACHERSIGN_COOKIE_SECRET` Secret과 해당 주소의 `TEACHERSIGN_ORIGIN` Config를 등록했다. Production 배포 ID는 `dpl_5tRCEcodtpWfgz5MNsUgZLuE4Cn1`이며 상태는 READY이다. `/api/runtime`는 `{mode:"gas",ready:true}`를 반환한다.
 
@@ -14,7 +16,7 @@ Vercel·Google 로그인과 기존 쿠키가 없는 새 모바일 브라우저�
 
 관리자 기능에는 기존 학교 계정 로그인을 유지하고 참여 화면에는 QR 토큰·선택적 참여 인증번호를 적용한다. 기존 Preview QR은 보호된 이전 호스트를 가리키므로 공개 고정 주소에서 다시 공유해야 한다. 학교 GAS·계정·연수·서명 자료를 이전하거나 다시 설치할 필요는 없다.
 
-### 현재 Preview 시험 주소
+### 과거 Preview 시험 주소
 
 - 최종 시험 주소: https://teachersign-schools-test-20261003-19493oz8x.vercel.app
 - 대상: Preview / 상태: READY / Node 함수: `api/gateway`

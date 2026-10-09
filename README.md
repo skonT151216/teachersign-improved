@@ -2,22 +2,24 @@
 
 여러 학교가 공용 앱을 사용하고, 학교마다 자신의 Google Apps Script(GAS)와 Google Drive에 관리자 계정·연수·서명을 보관하는 프로그램입니다. 추가 Redis·DB 서비스는 사용하지 않습니다.
 
-**[공개 앱 열기](https://teachersign-schools-test-20261003.vercel.app)** · [학교 설치·배포 안내](DEPLOYMENT.md) · [개발·검증 안내](DEVELOPMENT.md)
+**[프로그램 ZIP 다운로드](https://github.com/skonT151216/teachersign-improved/archive/refs/heads/main.zip)** · [GAS 코드](Code.gs) · [개발·검증 안내](DEVELOPMENT.md)
+
+2026-10-09: 기존 GitHub 저장소를 공개했습니다. Vercel 시험 배포는 학교 운영·공개 배포에 사용하지 않습니다. 현재 v5는 학교별 GAS 저장소에 별도 웹 화면과 Node API를 연결하는 시험 구현입니다. `Code.gs`만 배포하면 JSON 서버가 열리며 로그인·서명 화면은 열리지 않습니다. **각 학교의 GAS 주소 하나로 실행하는 완성 배포본은 아직 제공하지 않습니다.** 아래 설치 절차는 별도 웹 화면·API를 준비한 경우에만 적용합니다.
 
 서명 참여자는 Vercel·Google·학교 관리자 로그인 없이 QR로 접속합니다. 관리자는 해당 학교의 앱 아이디·암호로 로그인합니다. Google 권한 승인은 학교 담당자가 GAS를 최초 설치할 때 진행합니다.
 
-## 학교에 처음 설치하기
+## 별도 웹 화면·API가 있는 환경에서 학교 GAS 연결하기
 
-1. 공개 앱에서 **새 학교 설치**를 선택합니다.
+1. 별도로 준비한 웹 앱에서 **새 학교 설치**를 선택합니다. 이전 Vercel 시험 주소를 학교 운영 주소로 안내하지 않습니다.
 2. 학교 담당자의 Google 계정으로 새 Apps Script 프로젝트를 만들고 **v5 GAS 코드 복사**의 코드를 붙여넣습니다. 이 저장소의 [Code.gs](Code.gs)를 사용해도 됩니다.
 3. `setupTeacherSign`을 실행해 Drive·Sheets 권한을 승인하고, 실행 로그에 나온 **관리자 연결키**를 보관합니다.
 4. 웹앱으로 배포합니다. 실행 사용자는 **설치 담당자(나)**, 접근 권한은 **Google 로그인 없이 접속 가능한 모든 사용자**로 설정합니다. 학교의 Google Workspace 정책에 따라 공개 웹앱 배포가 제한될 수 있습니다.
-5. 공개 앱의 설치 화면에 `/exec` 주소·학교 이름·연결키를 입력하고 관리자 아이디와 12자 이상 암호를 정합니다.
+5. 준비한 웹 앱의 설치 화면에 `/exec` 주소·학교 이름·연결키를 입력하고 관리자 아이디와 12자 이상 암호를 정합니다.
 6. 생성된 학교 접속 링크를 저장하고 로그인합니다. 연수 등록 후 **링크 공유**로 참여 QR을 발급합니다.
 
 `/exec` 주소 자체는 JSON을 반환하는 저장소 서버입니다. 관리자 로그인과 서명 화면은 공용 앱에서 엽니다. 연결키는 최초 계정 설정에 사용하며, 로그인에는 직접 정한 앱 아이디·암호를 사용합니다.
 
-이미 설치한 학교는 **설치한 학교 접속**에 기존 `/exec` 주소를 입력하면 됩니다. 예전 Preview QR은 Vercel 인증을 요구할 수 있으므로 공개 앱에서 QR을 다시 공유하세요.
+이미 설치한 학교는 준비한 웹 앱의 **설치한 학교 접속**에 기존 `/exec` 주소를 입력하면 됩니다. 이전 Vercel 시험 주소를 담은 QR을 학교 운영용으로 배포하지 않습니다.
 
 ## GAS 파일
 
@@ -46,7 +48,7 @@ npm run dev
 
 http://localhost:5178 에서 학교별 GAS 연결 화면을 엽니다. 학교를 연결하기 전에는 실제 Google 요청을 보내지 않습니다. `npm run dev:gas`도 같은 실행 경로이며, Google에 연결하지 않는 가상 계정·자료 화면은 `npm run dev:demo`로 실행합니다.
 
-Vercel 배포에는 Node API와 Production의 `TEACHERSIGN_COOKIE_SECRET` 설정이 필요합니다. GitHub Pages나 정적 HTML만으로는 관리자 인증 API를 운영할 수 없습니다. 상세 설정은 [DEPLOYMENT.md](DEPLOYMENT.md)를 참고하세요.
+현재 웹 앱에는 Node API와 서버의 `TEACHERSIGN_COOKIE_SECRET` 설정이 필요합니다. GitHub Pages나 정적 HTML만으로는 관리자 인증 API를 운영할 수 없습니다. [DEPLOYMENT.md](DEPLOYMENT.md)는 사용을 종료한 Vercel 시험 배포 기록입니다.
 
 ## 검증 범위
 

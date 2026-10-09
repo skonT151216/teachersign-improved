@@ -3,7 +3,7 @@
   "private": true,
   "version": "5.0.0",
   "type": "module",
-  "homepage": "https://teachersign-schools-test-20261003.vercel.app",
+  "homepage": "https://github.com/skonT151216/teachersign-improved",
   "scripts": {
     "dev": "node server/school-dev.mjs",
     "build": "vite build",

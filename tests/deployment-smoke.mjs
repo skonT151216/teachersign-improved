@@ -2,7 +2,8 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { chromium } from 'playwright';
 import assert from 'node:assert/strict';
 
-const base = new URL(process.env.TEACHERSIGN_PUBLIC_URL || 'https://teachersign-schools-test-20261003.vercel.app').origin;
+if (!process.env.TEACHERSIGN_PUBLIC_URL) throw new Error('검사할 공개 앱 주소를 TEACHERSIGN_PUBLIC_URL로 지정하세요. 종료한 Vercel 시험 주소는 기본값으로 사용하지 않습니다.');
+const base = new URL(process.env.TEACHERSIGN_PUBLIC_URL).origin;
 await mkdir('artifacts', { recursive: true });
 const browser = await chromium.launch();
 const context = await browser.newContext();

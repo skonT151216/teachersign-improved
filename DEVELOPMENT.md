@@ -1,6 +1,6 @@
 # 개발·검증 안내
 
-학교 설치·공개 주소·Vercel 설정은 [DEPLOYMENT.md](DEPLOYMENT.md), 인증과 자료 구성은 [DEPLOYMENT-DESIGN.md](DEPLOYMENT-DESIGN.md)를 참고하세요.
+Vercel 시험 배포 기록은 [DEPLOYMENT.md](DEPLOYMENT.md), 인증과 자료 구성은 [DEPLOYMENT-DESIGN.md](DEPLOYMENT-DESIGN.md)를 참고하세요. 시험 Vercel 주소를 학교 운영용으로 사용하지 않습니다. 현재 v5는 별도 웹 화면·Node API가 필요하며, GAS 단독 화면 배포본은 아닙니다.
 
 ## 실행
 
@@ -51,10 +51,10 @@ npm run dev:demo
 # 다른 터미널에서
 npm run test:browser
 
-# 공개 배포의 설치 화면·API 준비·미로그인 관리자 차단 검사
+# 검사할 운영 앱을 준비한 경우 TEACHERSIGN_PUBLIC_URL을 지정하여 실행
 npm run test:browser:deployment
 ```
 
-공개 배포 검사 주소는 `TEACHERSIGN_PUBLIC_URL`로 바꿀 수 있습니다. 보호된 Preview를 공개하거나 인증을 우회하지 않습니다. 결과·스크린샷은 Git에서 제외된 `artifacts/`에 보관합니다. 실제 학교의 연결키·암호·서명은 브라우저 검사에 사용하지 않습니다.
+공개 배포 검사에는 `TEACHERSIGN_PUBLIC_URL` 지정이 필요합니다. 종료한 Vercel 시험 주소를 기본값으로 사용하지 않습니다. 보호된 Preview를 공개하거나 인증을 우회하지 않습니다. 결과·스크린샷은 Git에서 제외된 `artifacts/`에 보관합니다. 실제 학교의 연결키·암호·서명은 브라우저 검사에 사용하지 않습니다.
 
 `.env*`, `.vercel/`, `artifacts/`, `.teachersign-demo/`, `node_modules/`, `dist/`는 커밋하지 않습니다. `npm run build`는 정적 화면을 생성하며 학교 인증 API는 Node 서버가 필요합니다. GitHub Pages나 단일 HTML만으로 운영하지 않습니다.
