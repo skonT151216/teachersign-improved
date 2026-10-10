@@ -51,6 +51,10 @@ await page.setViewportSize({width:1000,height:1123});
 await page.screenshot({path:fileURLToPath(new URL('artifacts/manual/desktop.png',root))});
 await page.setViewportSize({width:390,height:844}); await page.screenshot({path:fileURLToPath(new URL('artifacts/manual/mobile.png',root))});
 // The beginner migration sheet shares the manual's exact six-step content.
+const migrationSection = md.match(/^## 8\. v4 자료 이전:[\s\S]*?(?=^## 9\.)/m)?.[0];
+assert.ok(migrationSection, 'Migration section missing');
+const quickMd = migrationSection.replace(/^## 8\. v4 자료 이전:.*\n/, '# v4 자료 이전 · 핵심 여섯 단계\n\n다운로드 없이 이 페이지에서 바로 읽을 수 있습니다. 인쇄하려면 [한 장 PDF 다운로드](https://github.com/skonT151216/teachersign-improved/releases/latest/download/TeacherSign-Migration-Quick.pdf)를 이용하세요.\n') + '\n[전체 사진 매뉴얼 보기 — 파일 교체는 2번, 관리자 설정은 5번, 배포 사진은 9번](https://github.com/skonT151216/teachersign-improved/blob/main/docs/교사용매뉴얼.md)\n';
+await writeFile(new URL('자료이전_핵심안내.md',docs),quickMd);
 const quickHtml = `<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>v4 자료 이전 · 핵심 여섯 단계</title><style>${css}@media print{body{font-size:12px}h2{font-size:22px}}</style></head><body><main><section class="page">${sections[8].replace('8. v4 자료 이전: 이 순서대로만 따라 하세요', 'v4 자료 이전 · 핵심 여섯 단계')}<p><a href="https://github.com/skonT151216/teachersign-improved/blob/main/docs/교사용매뉴얼.md">전체 사진 매뉴얼 보기 — 배포 사진은 9번</a></p></section></main></body></html>`;
 assert.ok(quickHtml.includes('previewTeacherSignMigration') && quickHtml.includes('migrateTeacherSignLegacyData'));
 await writeFile(new URL('자료이전_핵심안내.html',docs),quickHtml);
@@ -63,6 +67,7 @@ await page.screenshot({path:fileURLToPath(new URL('artifacts/manual/migration-qu
 await browser.close();
 const files={'교사용매뉴얼.html':strToU8(html),'교사용매뉴얼.md':strToU8(md),'TeacherSign-Manual.pdf':new Uint8Array(await readFile(new URL('artifacts/releases/TeacherSign-Manual.pdf',root))),'먼저읽기.txt':strToU8('압축을 푼 뒤 교사용매뉴얼.html을 열면 사진 포함 안내를 인터넷 없이 볼 수 있습니다. 기존 v4 자료 이전은 자료이전_핵심안내.html 또는 한 장짜리 TeacherSign-Migration-Quick.pdf의 여섯 단계를 따라 하세요. 인쇄·공유용 전체 안내는 TeacherSign-Manual.pdf입니다. images 폴더를 함께 보관하세요. v5.2.1 기준, 2026-10-10 확인.\n')};
 files['자료이전_핵심안내.html'] = strToU8(quickHtml);
+files['자료이전_핵심안내.md'] = strToU8(quickMd);
 files['TeacherSign-Migration-Quick.pdf'] = new Uint8Array(await readFile(new URL('artifacts/releases/TeacherSign-Migration-Quick.pdf',root)));
 for(const name of await readdir(new URL('images/',docs)))if(name.endsWith('.png'))files[`images/${name}`]=new Uint8Array(await readFile(new URL(`images/${name}`,docs)));
 await writeFile(new URL('artifacts/releases/TeacherSign-Manual.zip',root),zipSync(files,{level:9,mtime:new Date('2026-10-10T00:00:00Z')}));

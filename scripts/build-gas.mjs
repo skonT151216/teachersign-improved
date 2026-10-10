@@ -24,7 +24,7 @@ const names = ['Code.gs', 'Index.html', 'appsscript.json', '설치안내.md', 'v
 const files = {};
 for (const name of names) files[name] = strToU8(await readFile(new URL(`gas/standalone/${name}`, root), 'utf8'));
 // Ship the reviewed, offline screenshot guide with the school installer.
-for (const name of ['교사용매뉴얼.html', '교사용매뉴얼.md', '자료이전_핵심안내.html'])
+for (const name of ['교사용매뉴얼.html', '교사용매뉴얼.md', '자료이전_핵심안내.html', '자료이전_핵심안내.md'])
   files[`사진매뉴얼/${name}`] = strToU8(await readFile(new URL(`docs/${name}`, root), 'utf8'));
 for (const name of await readdir(new URL('docs/images/', root))) {
   if (!/^[a-z-]+\.png$/.test(name)) continue;
