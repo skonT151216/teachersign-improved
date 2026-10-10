@@ -1,10 +1,12 @@
-# 교직원 연수 등록부 도우미 v5.2.0 · 학교 GAS와 공용 사이트
+# 교직원 연수 등록부 도우미 v5.2.1 · 학교 GAS와 공용 사이트
 
 각 학교의 **Google Apps Script와 Google Drive만으로** 설치·관리자 로그인·연수 관리·QR 서명을 제공합니다. 학교별 /exec 이용에는 별도 웹 서버·추가 DB 서비스가 필요하지 않습니다. 공용 도메인은 Cloudflare 또는 Vercel의 정적 화면에서 같은 학교 GAS에 직접 연결할 수 있습니다. 일반 교직원은 관리자 로그인 없이 학교 QR로 서명합니다.
 
 **[GAS 설치 ZIP 다운로드](https://github.com/skonT151216/teachersign-improved/releases/latest/download/TeacherSign-GAS.zip)** · [상세 설치 안내](gas/standalone/설치안내.md) · [배포 파일 폴더](gas/standalone)
 
 ## 학교에 설치하기
+
+**기존 v4 학교는 새 설치만으로 자료가 연결되지 않습니다.** [v4 연수·서명 이전 안내](gas/standalone/v4자료이전.md)를 먼저 확인하세요. v5.2.1은 원본과 현재 파일을 보존하고, 확인한 원본의 복사본으로 연결하는 이전 도구를 제공합니다. 이미 v5 자료가 있으면 덮어쓰지 않고 중단합니다. 화면 버전은 v5.2.1, GAS 서버 버전은 v5.2.1입니다.
 
 1. 설치 ZIP을 내려받아 압축을 풉니다. 학교 담당자의 Google 계정으로 [Apps Script](https://script.google.com)에서 새 프로젝트를 만듭니다.
 2. 기본 **Code.gs** 내용을 ZIP의 **Code.gs**로 교체합니다.
@@ -28,7 +30,7 @@ ZIP의 `appsscript.json`으로 매니페스트를 직접 설정했다면 이번 
 
 **동일 GAS 프로젝트**의 Code.gs를 교체하고 Index HTML을 추가한 뒤 **배포 관리 → 기존 배포 수정 → 새 버전**으로 배포합니다. 기존 /exec 주소·스크립트 속성·Drive 파일 ID를 유지하면 계정과 연수·서명 자료를 계속 사용합니다. 관리자 계정을 다시 만들지 않습니다.
 
-이전 Vercel 시험 주소를 이용하지 않습니다. 예전 Vercel QR은 GAS /exec 주소에서 다시 발급합니다. v4 자료를 v5로 자동 이전하는 기능은 없으므로 기존 v4 운영 프로젝트는 보관하고 새 프로젝트로 설치합니다. v4 원본은 [gas/legacy/TeacherSignV4.gs](gas/legacy/TeacherSignV4.gs)에 있습니다.
+이전 Vercel 시험 주소를 이용하지 않습니다. 예전 Vercel QR은 GAS /exec 주소에서 다시 발급합니다. v4 원본은 [gas/legacy/TeacherSignV4.gs](gas/legacy/TeacherSignV4.gs)에 있습니다. 기존 v4 학교는 [자료 이전 절차](gas/standalone/v4자료이전.md)로 연수와 별도 서명 시트를 확인해 연결합니다. 같은 이름의 첫 파일을 자동 선택하지 않습니다.
 
 ## 담당자의 업데이트 확인
 

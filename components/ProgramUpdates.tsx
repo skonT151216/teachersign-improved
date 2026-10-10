@@ -73,7 +73,8 @@ export default function ProgramUpdates() {
         <a href={DOWNLOAD_URL} target="_blank" rel="noopener noreferrer" className="text-indigo-700 underline">GAS 설치 ZIP 다운로드</a>
         <a href={`${GITHUB_URL}/blob/main/Code.gs`} target="_blank" rel="noopener noreferrer" className="text-indigo-700 underline">최신 GAS 코드 보기</a>
       </div>
-      <p className="text-sm text-gray-600">업데이트는 자동 설치되지 않습니다. 기존 v4 자료를 v5로 자동 이전하는 기능은 없으므로 v4 운영 프로젝트에 덮어쓰지 마세요.</p>
+      <p className="text-sm text-gray-600">업데이트는 자동 설치되지 않습니다. v4를 쓰던 학교는 기존 연수·서명 파일을 확인하고 자료 이전 절차를 진행해야 합니다. 새 설치만으로 기존 자료가 연결되지는 않습니다.</p>
+      <a href={`${GITHUB_URL}/blob/main/gas/standalone/v4자료이전.md`} target="_blank" rel="noopener noreferrer" className="text-indigo-700 underline">v4 연수·서명 자료 이전 안내</a>
     </section>
   );
 }

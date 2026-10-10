@@ -20,7 +20,7 @@ await mkdir(new URL('gas/standalone/', root), { recursive: true });
 await writeFile(new URL('gas/standalone/Index.html', root), html);
 await writeFile(new URL('gas/standalone/Code.gs', root), source);
 await writeFile(new URL('gas/TeacherSignV5.gs', root), source);
-const names = ['Code.gs', 'Index.html', 'appsscript.json', '설치안내.md', 'THIRD-PARTY-LICENSES.txt'];
+const names = ['Code.gs', 'Index.html', 'appsscript.json', '설치안내.md', 'v4자료이전.md', 'THIRD-PARTY-LICENSES.txt'];
 const files = {};
 for (const name of names) files[name] = strToU8(await readFile(new URL(`gas/standalone/${name}`, root), 'utf8'));
 await mkdir(new URL('artifacts/releases/', root), { recursive: true });

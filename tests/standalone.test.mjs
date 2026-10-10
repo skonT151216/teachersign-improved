@@ -29,7 +29,7 @@ test('browser scrypt and HMAC retain the existing v5 Node verifier protocol', as
 test('only guarded RPC and web handlers are callable; private helpers cannot bypass login', async () => {
   const code = await readFile(new URL('../Code.gs', import.meta.url), 'utf8');
   const exposed = [...code.matchAll(/^function (\w+)\(/gm)].map(match => match[1]).filter(name => !name.endsWith('_'));
-  assert.deepEqual(exposed.sort(), ['doGet', 'doPost', 'setupTeacherSign', 'teacherSignRpc']);
+  assert.deepEqual(exposed.sort(), ['doGet', 'doPost', 'inspectTeacherSignLegacyData', 'migrateTeacherSignLegacyData', 'previewTeacherSignMigration', 'setupTeacherSign', 'teacherSignRpc']);
   const gas = createGasHarness();
   assert.equal(gas.rpc({ operation: 'getStoredData' }).status, 'error');
   assert.ok(gas.rpc({ operation: 'admin', name: 'getAdminSessions' }).message.startsWith('[ERR-AUTH]'));
@@ -72,7 +72,7 @@ test('default GAS URL serves self-contained HTML and escapes untrusted participa
   assert.equal(boot.params.sessionId, attack);
   assert.equal(boot.params.school, undefined);
   assert.ok([...html.matchAll(/<script\b([^>]*)>[\s\S]*?<\/script>/g)].every(match => !/\bsrc\s*=/.test(match[1])));
-  assert.equal(JSON.parse(gas.context.doGet({ parameter: { action: 'healthCheck' } }).getContent()).data.serverVersion, '5.2.0');
+  assert.equal(JSON.parse(gas.context.doGet({ parameter: { action: 'healthCheck' } }).getContent()).data.serverVersion, '5.2.1');
 });
 test('GAS RPC supports existing v5 account, school isolation, CSRF, logout and expiry', async () => {
   const shared = createFakeDrive(), a = createGasHarness('rpc-school-A', shared), b = createGasHarness('rpc-school-B', shared);

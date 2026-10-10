@@ -18,6 +18,19 @@ export function createFakeDrive() {
       getId() {
         return id;
       },
+      getName: () => value.name,
+      getSize: () => Buffer.byteLength(value.content),
+      getLastUpdated: () => new Date(0),
+      isTrashed: () => false,
+      makeCopy(name, folder) {
+        const copy = file(name, value.content);
+        copy.moveTo(folder);
+        if (sheets.has(id)) {
+          const original = sheets.get(id).getSheetByName('signatures');
+          spreadsheet.createCopy(copy.id, original?.getDataRange().getValues() || []);
+        }
+        return copy;
+      },
       getBlob() {
         return { getDataAsString: () => value.content };
       },
@@ -35,6 +48,11 @@ export function createFakeDrive() {
     return value;
   };
   const drive = {
+    getFilesByName: name => {
+      const matches = [...files.values()].filter(file => file.name === name);
+      let index = 0;
+      return { hasNext: () => index < matches.length, next: () => matches[index++] };
+    },
     createFolder: (name) => {
       const folder = file(name);
       folder.createFile = (name, content) => {
@@ -51,6 +69,14 @@ export function createFakeDrive() {
     },
   };
   const spreadsheet = {
+    createCopy: (id, rows) => {
+      const copy = spreadsheet.create('copy-temporary');
+      const sheet = copy.insertSheet('signatures');
+      rows.forEach(row => sheet.appendRow(row));
+      sheets.delete(copy.getId());
+      files.delete(copy.getId());
+      sheets.set(id, { ...copy, getId: () => id });
+    },
     create: (name) => {
       const f = file(name);
       const tabs = new Map();
@@ -135,6 +161,7 @@ export function createGasHarness(
       getScriptProperties: () => ({
         getProperty: (k) => props.get(k),
         setProperty: (k, v) => props.set(k, v),
+        setProperties: values => Object.entries(values).forEach(([k, v]) => props.set(k, v)),
       }),
     },
     LockService: {

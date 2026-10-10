@@ -1,8 +1,8 @@
-// TeacherSign Google Apps Script server v5.2.0
+// TeacherSign Google Apps Script server v5.2.1
 // Install Code.gs AND Index.html from the GAS ZIP, run setupTeacherSign in the
 // Apps Script editor, then deploy the web app to execute as the installer.
 
-const SERVER_VERSION = "5.2.0";
+const SERVER_VERSION = "5.2.1";
 const DB_FILENAME = "TrainingApp_DB.json";
 const SIG_SHEET_FILENAME = "TrainingApp_Signatures";
 const SIG_SHEET_TAB = "signatures";
@@ -23,14 +23,18 @@ const SIG_HEADERS = [
 // Select this public entry in the editor. An anonymous web-app visitor must
 // never initialize owner storage or receive the bootstrap key through RPC.
 function setupTeacherSign() {
-  const active = Session.getActiveUser().getEmail().trim().toLowerCase();
-  const effective = Session.getEffectiveUser().getEmail().trim().toLowerCase();
-  if (!active || !effective || active !== effective)
-    throw new Error("[ERR-INSTALLER] 설치 담당자의 Google 계정으로 Apps Script 편집기에서 실행하세요.");
+  requireTeacherSignInstaller_();
   setupTeacherSign_();
   // The key is printed only in the installer execution log, never returned
   // by this callable entry, even when the installer opens their own web app.
   return "설치 준비 완료. 실행 로그의 관리자 연결키를 확인하세요.";
+}
+
+function requireTeacherSignInstaller_() {
+  const active = Session.getActiveUser().getEmail().trim().toLowerCase();
+  const effective = Session.getEffectiveUser().getEmail().trim().toLowerCase();
+  if (!active || !effective || active !== effective)
+    throw new Error("[ERR-INSTALLER] 설치 담당자의 Google 계정으로 Apps Script 편집기에서 실행하세요.");
 }
 
 function setupTeacherSign_() {
@@ -41,10 +45,191 @@ function setupTeacherSign_() {
     properties.setProperty(ADMIN_KEY_PROPERTY, adminKey);
   }
   initializeSchoolStorage_();
-  getStoredData_();
+  const db = getStoredData_();
   getSignatureSheet_();
+  if (!db.sessions.length) {
+    const files = DriveApp.getFilesByName(DB_FILENAME);
+    while (files.hasNext()) {
+      const file = files.next();
+      if (file.getId() !== properties.getProperty("TEACHERSIGN_DB_FILE_ID") && !file.isTrashed()) {
+        console.log("[v4 자료 확인 필요] 같은 이름의 기존 DB가 있습니다. inspectTeacherSignLegacyData 실행 후 설치안내의 'v4 자료 이전' 절차를 진행하세요. 자동으로 파일을 선택하지 않습니다.");
+        break;
+      }
+    }
+  }
   console.log("관리자 연결키: " + adminKey);
   return "관리자 연결키: " + adminKey;
+}
+
+// Editor-only, installer-guarded migration. Data stays in Drive; the large
+// legacy DB is never sent through the browser RPC's 2 MB request limit.
+function inspectTeacherSignLegacyData() {
+  requireTeacherSignInstaller_();
+  const props = PropertiesService.getScriptProperties();
+  const current = props.getProperty("TEACHERSIGN_DB_FILE_ID");
+  if (current) {
+    const currentDb = readMigrationDb_(DriveApp.getFileById(current));
+    const currentRows = readMigrationRows_(schoolFile_("TEACHERSIGN_SIGNATURE_FILE_ID"));
+    const merged = getMergedSessions_(currentDb);
+    console.log(JSON.stringify({ currentFileId: current, ...migrationDbCounts_(currentDb), currentSeparateSignatureRows: currentRows.length, mergedSignatures: merged.reduce((total, session) => total + session.signatures.length, 0) }));
+  }
+  const files = DriveApp.getFilesByName(DB_FILENAME);
+  let count = 0;
+  while (files.hasNext() && count < 30) {
+    const file = files.next();
+    if (file.isTrashed() || file.getId() === current) continue;
+    count++;
+    try {
+      const value = readMigrationDb_(file);
+      console.log(JSON.stringify({ fileId: file.getId(), modifiedAt: file.getLastUpdated().toISOString(), ...migrationDbCounts_(value) }));
+    } catch (error) {
+      console.log(JSON.stringify({ fileId: file.getId(), readable: false }));
+    }
+  }
+  console.log("후보 DB " + count + "개. 이름이나 최신 수정일만으로 자동 선택하지 않습니다. 학교의 원본을 확인하고 TEACHERSIGN_LEGACY_DB_FILE_ID 속성에 ID를 입력하세요.");
+  const sheets = DriveApp.getFilesByName(SIG_SHEET_FILENAME);
+  let sheetCount = 0;
+  while (sheets.hasNext() && sheetCount < 30) {
+    const file = sheets.next();
+    if (file.isTrashed() || file.getId() === props.getProperty("TEACHERSIGN_SIGNATURE_FILE_ID")) continue;
+    sheetCount++;
+    console.log(JSON.stringify({ signatureFileId: file.getId(), modifiedAt: file.getLastUpdated().toISOString() }));
+  }
+  console.log("v4의 별도 서명 시트를 사용했다면 TEACHERSIGN_LEGACY_SIGNATURE_FILE_ID에 해당 ID도 입력하세요. 별도 시트가 없고 JSON에 모든 서명이 있는 것을 확인한 경우에만 NONE을 입력하세요.");
+  return "실행 로그의 파일 ID와 개수를 확인하세요. 자료와 연결은 변경하지 않았습니다.";
+}
+
+function previewTeacherSignMigration() {
+  requireTeacherSignInstaller_();
+  const lock = LockService.getScriptLock();
+  lock.waitLock(28000);
+  try {
+    const value = teacherSignMigrationState_();
+    const counts = {
+      source: migrationDbCounts_(value.sourceDb),
+      separateSignatureRows: value.sourceRows.length,
+      current: migrationDbCounts_(value.currentDb),
+      currentSeparateSignatureRows: value.currentRows.length,
+    };
+    console.log(JSON.stringify(counts));
+    assertMigrationDestinationEmpty_(value);
+    PropertiesService.getScriptProperties().setProperty("TEACHERSIGN_MIGRATION_PREVIEW", JSON.stringify(value.fingerprint));
+    console.log("이전 사전 확인 완료. 원본과 현재 파일을 보존한 뒤 복사본으로 연결합니다. migrateTeacherSignLegacyData를 실행하세요.");
+    return JSON.stringify(counts);
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function migrateTeacherSignLegacyData() {
+  requireTeacherSignInstaller_();
+  const lock = LockService.getScriptLock();
+  lock.waitLock(28000);
+  try {
+    const props = PropertiesService.getScriptProperties();
+    const value = teacherSignMigrationState_();
+    assertMigrationDestinationEmpty_(value);
+    const receipt = props.getProperty("TEACHERSIGN_MIGRATION_RECEIPT");
+    if (receipt) throw new Error("[ERR-MIGRATION-DONE] 이 프로젝트는 이미 이전했습니다. 반복 이전하지 않습니다.");
+    if (props.getProperty("TEACHERSIGN_MIGRATION_PREVIEW") !== JSON.stringify(value.fingerprint))
+      throw new Error("[ERR-MIGRATION-PREVIEW] 파일 또는 연결이 바뀌었습니다. previewTeacherSignMigration을 먼저 다시 실행하세요.");
+    const folder = DriveApp.getFolderById(props.getProperty("TEACHERSIGN_FOLDER_ID"));
+    const suffix = "_before_v4_migration_" + Date.now();
+    const backupDb = value.currentFile.makeCopy(DB_FILENAME + suffix, folder);
+    const backupSheet = value.currentSheetFile.makeCopy(SIG_SHEET_FILENAME + suffix, folder);
+    const copiedDb = value.sourceFile.makeCopy(DB_FILENAME, folder);
+    if (schoolDigest_(copiedDb.getBlob().getDataAsString()) !== value.fingerprint.sourceDigest)
+      throw new Error("[ERR-MIGRATION-COPY] DB 복사본 검증에 실패했습니다. 현재 연결은 유지했습니다.");
+    let signatureId = value.currentSheetFile.getId();
+    if (value.sourceSheetFile) {
+      const copiedSheet = value.sourceSheetFile.makeCopy(SIG_SHEET_FILENAME, folder);
+      if (schoolDigest_(JSON.stringify(readMigrationRows_(copiedSheet))) !== value.fingerprint.sourceSheetDigest)
+        throw new Error("[ERR-MIGRATION-COPY] 서명 복사본 검증에 실패했습니다. 현재 연결은 유지했습니다.");
+      signatureId = copiedSheet.getId();
+    }
+    // Switch only after all copies are verified. Never change auth or keys.
+    const result = { sessions: value.sourceDb.sessions.length, embeddedSignatures: migrationDbCounts_(value.sourceDb).embeddedSignatures, separateSignatureRows: value.sourceRows.length, sourceFileId: value.sourceFile.getId(), dbFileId: copiedDb.getId(), signatureFileId: signatureId, backupDbFileId: backupDb.getId(), backupSignatureFileId: backupSheet.getId() };
+    props.setProperties({
+      TEACHERSIGN_DB_FILE_ID: copiedDb.getId(),
+      TEACHERSIGN_SIGNATURE_FILE_ID: signatureId,
+      TEACHERSIGN_MIGRATION_RECEIPT: JSON.stringify(result),
+      TEACHERSIGN_MIGRATION_PREVIEW: "",
+    }, false);
+    console.log(JSON.stringify(result));
+    console.log("이전 완료. 원본·이전 연결 파일·백업을 보존했고 관리자 계정은 유지했습니다. /exec를 새로고침해 연수와 서명을 확인하세요.");
+    return JSON.stringify(result);
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function migrationDbCounts_(db) {
+  return { sessions: db.sessions.length, embeddedSignatures: db.sessions.reduce((total, session) => total + (session.signatures || []).length, 0) };
+}
+function readMigrationDb_(file) {
+  return readMigrationDbSnapshot_(file).db;
+}
+function readMigrationDbSnapshot_(file) {
+  if (file.isTrashed() || file.getSize() > 25000000)
+    throw new Error("[ERR-MIGRATION-FILE] 휴지통 또는 25 MB를 초과하는 파일은 이전할 수 없습니다.");
+  const content = file.getBlob().getDataAsString();
+  let db;
+  try { db = JSON.parse(content); }
+  catch (error) { throw new Error("[ERR-MIGRATION-DB] JSON을 읽지 못했습니다. 원본 파일을 확인하세요."); }
+  if (!db || typeof db !== "object" || !Array.isArray(db.sessions))
+    throw new Error("[ERR-MIGRATION-DB] sessions 배열이 있는 연수 DB를 선택하세요.");
+  const ids = new Set();
+  db.sessions.forEach(session => {
+    if (!session || typeof session.id !== "string" || !session.id || ids.has(session.id) ||
+        (session.signatures !== undefined && !Array.isArray(session.signatures)) ||
+        (session.staffList !== undefined && !Array.isArray(session.staffList)) ||
+        (session.roster !== undefined && !Array.isArray(session.roster)))
+      throw new Error("[ERR-MIGRATION-DB] 중복 연수 ID 또는 잘못된 명단·서명 형식입니다.");
+    ids.add(session.id);
+  });
+  return { db, digest: schoolDigest_(content) };
+}
+function readMigrationRows_(file) {
+  if (file.isTrashed()) throw new Error("[ERR-MIGRATION-SHEET] 휴지통의 서명 파일은 사용할 수 없습니다.");
+  const spreadsheet = SpreadsheetApp.openById(file.getId());
+  const sheet = spreadsheet.getSheetByName(SIG_SHEET_TAB);
+  if (!sheet || sheet.getLastRow() < 1)
+    throw new Error("[ERR-MIGRATION-SHEET] signatures 탭과 서명 열을 확인하세요.");
+  const values = sheet.getRange(1, 1, sheet.getLastRow(), SIG_HEADERS.length).getValues();
+  if (values[0].join("|") !== SIG_HEADERS.join("|"))
+    throw new Error("[ERR-MIGRATION-SHEET] v4 서명 시트의 열 형식이 맞지 않습니다.");
+  return values.slice(1).filter(row => row.some(cell => cell !== ""));
+}
+function teacherSignMigrationState_() {
+  const props = PropertiesService.getScriptProperties();
+  const sourceId = props.getProperty("TEACHERSIGN_LEGACY_DB_FILE_ID");
+  const sheetId = props.getProperty("TEACHERSIGN_LEGACY_SIGNATURE_FILE_ID");
+  if (!sourceId) throw new Error("[ERR-MIGRATION-SOURCE] TEACHERSIGN_LEGACY_DB_FILE_ID에 확인한 v4 원본 파일 ID를 입력하세요.");
+  if (!sheetId) throw new Error("[ERR-MIGRATION-SOURCE] TEACHERSIGN_LEGACY_SIGNATURE_FILE_ID에 기존 서명 시트 ID를 입력하세요. 별도 시트가 없고 JSON에 서명이 모두 있는 경우에만 NONE을 입력하세요.");
+  if (sourceId === props.getProperty("TEACHERSIGN_DB_FILE_ID"))
+    throw new Error("[ERR-MIGRATION-SOURCE] 이미 같은 DB에 연결되어 있습니다. 원본 파일로 다시 이전하지 않습니다.");
+  const sourceFile = DriveApp.getFileById(sourceId);
+  const sourceSnapshot = readMigrationDbSnapshot_(sourceFile);
+  const sourceDb = sourceSnapshot.db;
+  if (!sourceDb.sessions.length) throw new Error("[ERR-MIGRATION-SOURCE] 원본에 연수가 없습니다. 다른 파일인지 확인하세요.");
+  const currentFile = schoolFile_("TEACHERSIGN_DB_FILE_ID");
+  const currentSnapshot = readMigrationDbSnapshot_(currentFile);
+  const currentDb = currentSnapshot.db;
+  const currentSheetFile = schoolFile_("TEACHERSIGN_SIGNATURE_FILE_ID");
+  const currentRows = readMigrationRows_(currentSheetFile);
+  const sourceSheetFile = sheetId === "NONE" ? null : DriveApp.getFileById(sheetId);
+  if (sourceSheetFile && sourceSheetFile.getId() === currentSheetFile.getId())
+    throw new Error("[ERR-MIGRATION-SOURCE] v4 원본 서명 시트와 현재 서명 시트를 구분하세요.");
+  const sourceRows = sourceSheetFile ? readMigrationRows_(sourceSheetFile) : [];
+  const sessionIds = new Set(sourceDb.sessions.map(session => session.id));
+  if (sourceRows.some(row => !sessionIds.has(String(row[0]))))
+    throw new Error("[ERR-MIGRATION-SHEET] 선택한 DB에 없는 연수의 서명이 있습니다. 같은 학교·같은 버전의 원본인지 확인하세요.");
+  return { sourceFile, sourceDb, sourceSheetFile, sourceRows, currentFile, currentDb, currentSheetFile, currentRows,
+    fingerprint: { sourceId, sourceDigest: sourceSnapshot.digest, sourceSheetId: sheetId, sourceSheetDigest: schoolDigest_(JSON.stringify(sourceRows)), currentId: currentFile.getId(), currentDigest: currentSnapshot.digest, currentSheetId: currentSheetFile.getId(), currentSheetDigest: schoolDigest_(JSON.stringify(currentRows)), folderId: props.getProperty("TEACHERSIGN_FOLDER_ID") } };
+}
+function assertMigrationDestinationEmpty_(value) {
+  if (value.currentDb.sessions.length || value.currentRows.length)
+    throw new Error("[ERR-MIGRATION-NOT-EMPTY] 현재 v5 자료가 있어 이전을 중단했습니다. 새 자료를 덮어쓰지 않습니다. 두 자료를 보존한 뒤 별도 병합이 필요합니다.");
 }
 
 function resetTeacherSignAdminKey_() {

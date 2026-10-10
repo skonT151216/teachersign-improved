@@ -87,11 +87,11 @@ try {
   pass("Persistent connection screen shows a shareable school link");
   await page.getByRole('button', { name: '프로그램 업데이트', exact: true }).click();
   await page.getByText('새 업데이트가 있습니다.', { exact: true }).waitFor();
-  assert.equal(await page.getByText('학교 GAS 버전: v5.2.0', { exact: true }).count(), 1);
+  assert.equal(await page.getByText('학교 GAS 버전: v5.2.1', { exact: true }).count(), 1);
   assert.equal(await page.getByRole('link', { name: '최신 프로그램 ZIP 다운로드', exact: true }).getAttribute('href'), 'https://github.com/skonT151216/teachersign-improved/releases/latest/download/TeacherSign-GAS.zip');
   await page.screenshot({ path: 'artifacts/school-updates.png', fullPage: true });
   pass('Administrator sees newer frontend/GAS versions and the official GitHub download');
-  updateResponse = { ...updateResponse, appVersion: '5.2.0', gasVersion: '5.2.0' };
+  updateResponse = { ...updateResponse, appVersion: '5.2.1', gasVersion: '5.2.1' };
   await page.getByRole('button', { name: '업데이트 확인', exact: true }).click();
   await page.getByText('현재 화면과 학교 GAS는 최신 버전 이상입니다.', { exact: true }).waitFor();
   pass('Update check distinguishes an up-to-date school installation');

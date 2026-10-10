@@ -16,6 +16,8 @@ npm run dev
 
 GAS 빌드는 `gas-entry.tsx`·`vite.gas.config.ts`로 화면·스타일·엑셀·암호 계산 라이브러리를 단일 HTML에 포함합니다. `gas/standalone/Code.gs`, `Index.html`, 선택 매니페스트, 설치 안내, 라이선스 고지와 설치 ZIP을 생성합니다. 외부 JavaScript CDN 없이 실행하며 GitHub 업데이트 확인만 공개 네트워크를 사용합니다.
 
+GAS v5.2.1은 v4 자료 확인·사전 확인·복사 이전을 설치 담당자용 함수로 제공합니다. `tests/migration.test.mjs`는 2 MB 초과 DB, 원본·현재 자료·인증 보존, 새 자료 차단, 파일 변경 감지, 서명 시트 복사와 실패 시 연결 유지 등을 실제 Code.gs의 모의 Drive에서 검사합니다. 실제 Google 복사는 학교 계정에서 별도 확인해야 합니다.
+
 `npm run dev`는 두 가상 학교와 모의 Drive를 제공하는 GAS iframe 미리보기입니다. 최초 연결키는 콘솔에 표시되는 **가상 값**입니다. 실제 Google에 연결하지 않으며 재시작하면 가상 자료는 초기화됩니다. 포트는 기본 5178, `TEACHERSIGN_PREVIEW_PORT`로 변경합니다. 운영 학교의 URL·연결키·자료를 입력하지 않습니다.
 
 ## 브라우저

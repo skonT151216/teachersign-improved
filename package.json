@@ -1,7 +1,7 @@
 {
   "name": "teachersign",
   "private": true,
-  "version": "5.2.0",
+  "version": "5.2.1",
   "type": "module",
   "homepage": "https://github.com/skonT151216/teachersign-improved",
   "scripts": {
