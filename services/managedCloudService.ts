@@ -96,3 +96,11 @@ export const sendParticipantSignature = (url: string, sessionId: string, partici
   if (!validParticipantEndpoint(url, getGasRuntime())) return Promise.resolve(false);
   return save(true, 'addParticipantSignature', { sessionId, participantToken, authCode, signature });
 };
+
+export interface LegacyFile { fileId: string; name: string; folder: string; modifiedAt: string; readable: boolean; sessions?: number; embeddedSignatures?: number; rows?: number; titles?: { title: string; date: string }[] }
+export interface LegacySearch { current: { sessions: number; signatures: number }; completed: boolean; databases: LegacyFile[]; sheets: LegacyFile[]; truncated: boolean }
+export interface LegacyPreview { ticket: string; sessions: number; signatures: number; embeddedSignatures: number; separateSignatureRows: number; database: LegacyFile; signatureFile: LegacyFile | null; titles: { title: string; date: string }[] }
+export interface LegacyResult { sessions: number; signatures: number; dbFileId: string; signatureFileId: string; backupDbFileId: string; backupSignatureFileId: string }
+export const findLegacyData = () => action<LegacySearch>(false, 'findLegacyData', {});
+export const previewLegacyData = (dbFileId: string, signatureFileId: string) => action<LegacyPreview>(false, 'previewLegacyData', { dbFileId, signatureFileId });
+export const connectLegacyData = (ticket: string) => action<LegacyResult>(false, 'connectLegacyData', { ticket }, true);

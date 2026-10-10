@@ -81,6 +81,24 @@ async function environment() {
   return { handler, a, b, schools, calls, drive };
 }
 
+test('school gateway forwards authenticated migration actions and keeps actionable failures', async () => {
+  const { handler, a } = await environment();
+  const login = await call(handler, path('/api/auth/login'), { username: 'same-admin', password });
+  const access = authOpts(login);
+  const scan = await call(handler, path('/api/admin/action'), { action: 'findLegacyData' }, access);
+  assert.equal(scan.status, 200); assert.equal(scan.body.data.current.sessions, 0);
+  const source = a.shared.drive.createFolder('old-school').createFile('TrainingApp_DB.json', JSON.stringify({ sessions: [{ id: 'old-school-training', title: '가상 이전 연수' }] }));
+  const selection = { action: 'previewLegacyData', dbFileId: source.getId(), signatureFileId: 'NONE' };
+  const preview = await call(handler, path('/api/admin/action'), selection, access);
+  assert.equal(preview.status, 200); assert.equal(preview.body.data.sessions, 1);
+  const unauthorized = await call(handler, path('/api/admin/action'), { action: 'connectLegacyData', ticket: preview.body.data.ticket });
+  assert.equal(unauthorized.status, 401);
+  const done = await call(handler, path('/api/admin/action'), { action: 'connectLegacyData', ticket: preview.body.data.ticket }, { ...access, headers: { 'idempotency-key': 'migration-gateway-1234567890' } });
+  assert.equal(done.status, 200); assert.equal(done.body.data.sessions, 1);
+  const repeated = await call(handler, path('/api/admin/action'), selection, access);
+  assert.equal(repeated.status, 409); assert.match(repeated.body.message, /ERR-MIGRATION-DONE/);
+});
+
 test("two school GAS installations on the same Drive keep file IDs, accounts and sessions separate", async () => {
   const { handler, a, b, drive } = await environment();
   for (const property of [

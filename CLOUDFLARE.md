@@ -32,10 +32,10 @@ npx wrangler deploy
 ## 배포 확인
 
 1. 공용 도메인을 새로고침하면 v4 시작 화면 대신 학교 GAS 주소 연결 또는 학교 관리자 화면이 열립니다.
-2. `/version.json`에서 appVersion 5.2.1을 확인합니다.
+2. `/version.json`에서 appVersion 5.3.0을 확인합니다.
 3. 해당 학교의 v5 /exec 주소를 연결합니다. 기존 v5 계정은 그대로 로그인하고 미설정 학교는 최초 계정을 만듭니다.
 4. 가상 연수를 만들고 공용 도메인 QR로 로그인 없는 서명을 시험합니다. 학교 /exec에서도 같은 기록을 확인합니다.
 
-사이트 ZIP을 업로드해도 각 학교의 GAS 코드나 Drive 자료는 바뀌지 않습니다. v4에서 전환하는 학교는 [자료 이전 안내](gas/standalone/v4자료이전.md)에 따라 원본을 확인한 뒤 복사본으로 연결합니다. 이전 도구는 학교 GAS에서 실행합니다. v5.2.1 화면에는 자료 이전 안내 링크가 추가되어, /exec의 Index HTML과 공용 사이트 화면을 각각 갱신합니다.
+사이트 ZIP을 업로드해도 각 학교의 GAS 코드나 Drive 자료는 바뀌지 않습니다. v4에서 전환하는 학교는 [자료 이전 안내](gas/standalone/v4자료이전.md)에 따라 원본을 확인한 뒤 복사본으로 연결합니다. 이전 도구는 학교 GAS에서 실행합니다. v5.3.0 화면에는 관리자용 기존 자료 연결 기능이 추가되어, /exec의 Index HTML과 공용 사이트 화면을 각각 갱신합니다.
 
 공식 안내: [Cloudflare 정적 자산 시작](https://developers.cloudflare.com/workers/static-assets/get-started/), [Wrangler 설정](https://developers.cloudflare.com/workers/wrangler/configuration/).

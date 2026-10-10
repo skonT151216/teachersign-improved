@@ -12,6 +12,7 @@ import DemoAccountSettings from "./DemoAccountSettings";
 import SetupGuide from "./SetupGuide";
 import SchoolAccountSettings from "./SchoolAccountSettings";
 import ProgramUpdates from "./ProgramUpdates";
+import LegacyDataConnection from "./LegacyDataConnection";
 import { getSchoolScope } from "../services/managedCloudService";
 import { getSchoolLink } from '../services/gasRuntime';
 
@@ -24,7 +25,7 @@ export default function ServerConnection({
   onCancel: () => void;
   initialSection?: "connection" | "account";
 }) {
-  const [section, setSection] = useState<"connection" | "account" | "updates">(initialSection);
+  const [section, setSection] = useState<"connection" | "account" | "updates" | "legacy">(initialSection);
   const [connection, setConnection] = useState<Connection | null>(null);
   const [label, setLabel] = useState("");
   const [error, setError] = useState("");
@@ -107,12 +108,13 @@ export default function ServerConnection({
       <main className="max-w-3xl mx-auto p-6 my-8 bg-white rounded-xl shadow space-y-5">
         <div className="flex justify-between items-center">
           <h1 className="text-2xl font-bold">학교 설정</h1>
-          <button onClick={onCancel} className="border rounded p-3">
+          <button disabled={busy} onClick={onCancel} className="border rounded p-3 disabled:opacity-50">
             돌아가기
           </button>
         </div>
         <div className="flex flex-wrap gap-3">
           <button
+            disabled={busy}
             onClick={() => setSection("connection")}
             aria-pressed={section === "connection"}
             className="border rounded p-3"
@@ -120,17 +122,18 @@ export default function ServerConnection({
             Google Drive 연동
           </button>
           <button
+            disabled={busy}
             onClick={() => setSection("account")}
             aria-pressed={section === "account"}
             className="border rounded p-3"
           >
             관리자 계정
           </button>
-          <button onClick={() => setSection("updates")} className="border rounded p-3" aria-pressed={section === "updates"}>
+          <button disabled={busy} onClick={() => setSection("updates")} className="border rounded p-3" aria-pressed={section === "updates"}>
             프로그램 업데이트
           </button>
         </div>
-        {section === "updates" ? <ProgramUpdates /> : section === "account" ? (
+        {section === "legacy" ? <LegacyDataConnection onComplete={onSave} onBusyChange={setBusy} /> : section === "updates" ? <ProgramUpdates /> : section === "account" ? (
           <SchoolAccountSettings />
         ) : (
           <section className="space-y-4">
@@ -150,9 +153,13 @@ export default function ServerConnection({
               />
             </label>
             <p className="text-sm text-gray-600">
-              다른 학교는 첫 화면에서 자신의 GAS 주소로 접속합니다. 이 화면에서
-              학교 저장소를 바꾸지 않습니다.
+              다른 학교는 첫 화면에서 자신의 GAS 주소로 접속합니다.
             </p>
+            <div className="border rounded-xl p-4 space-y-3 bg-blue-50">
+              <h3 className="font-bold">v4에서 쓰던 연수가 보이지 않나요?</h3>
+              <p className="text-sm">기존 파일을 찾아 연수와 서명을 확인하고 연결할 수 있습니다. 원본은 보존합니다.</p>
+              <button onClick={() => setSection("legacy")} className="rounded bg-blue-700 text-white p-3">기존 자료 연결</button>
+            </div>
           </section>
         )}
       </main>

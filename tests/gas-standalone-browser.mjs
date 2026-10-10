@@ -22,7 +22,7 @@ async function isolate(context) {
   context.on('page', page => page.on('pageerror', e => errors.push(e.message)));
   await context.route('**/*', async route => {
     const url = new URL(route.request().url());
-    if (url.hostname === 'raw.githubusercontent.com') return route.fulfill({ contentType: 'application/json', body: JSON.stringify({ appVersion: '5.3.0', gasVersion: '5.3.0', publishedAt: '2026-10-09', notes: '가상 GAS 업데이트' }) });
+    if (url.hostname === 'raw.githubusercontent.com') return route.fulfill({ contentType: 'application/json', body: JSON.stringify({ appVersion: '5.4.0', gasVersion: '5.4.0', publishedAt: '2026-10-09', notes: '가상 GAS 업데이트' }) });
     if (hosted && url.hostname === 'script.google.com') {
       const id = /FixtureSchoolEndpoint([AB])\/exec$/.exec(url.pathname)?.[1];
       assert.ok(id); assert.equal(route.request().method(), 'POST');
@@ -97,6 +97,46 @@ try {
   assert.equal(await ui().getByRole('link', { name: 'GAS 설치 ZIP 다운로드', exact: true }).getAttribute('href'), 'https://github.com/skonT151216/teachersign-improved/releases/latest/download/TeacherSign-GAS.zip');
   await page.screenshot({ path: `artifacts/${hosted ? 'gas-hosted' : 'gas-standalone'}-updates.png`, fullPage: true });
   pass('School settings use the canonical GAS URL and provide GAS install/update download');
+  await ui().getByRole('button', { name: 'Google Drive 연동', exact: true }).click();
+  await ui().getByRole('button', { name: '기존 자료 연결', exact: true }).click();
+  const migrationGas = fixture.schools.get('A');
+  const legacyFolder = migrationGas.shared.drive.createFolder('가상 학교 A 기존 자료');
+  const legacySource = legacyFolder.createFile('TrainingApp_DB.json', JSON.stringify({ sessions: [{ id: 'legacy-browser-training', type: 'parents', title: '가상 기존 학부모 연수', schoolName: '가상 GAS 학교 A', date: '2025-09-01', createdAt: 1, maxParticipants: 100, participantToken: 'fictional-legacy-participant-token', signatures: [{ staffId: 'fictional-parent', staffName: '가상 학부모', signatureData: 'data:image/png;base64,RklDVElPTkFM', timestamp: 1 }] }] }));
+  const legacySheet = migrationGas.shared.spreadsheet.create('TrainingApp_Signatures');
+  migrationGas.shared.files.get(legacySheet.getId()).moveTo(legacyFolder);
+  const legacyTab = legacySheet.insertSheet('signatures');
+  legacyTab.appendRow(migrationGas.context.getSignatureSheet_().getDataRange().getValues()[0]);
+  legacyTab.appendRow(['legacy-browser-training', 'fictional-parent', '가상 학부모', '', '', '', '', '', 'data:image/png;base64,RklDVElPTkFM', 2]);
+  const sourceText = legacySource.content;
+  const previousDbId = migrationGas.props.get('TEACHERSIGN_DB_FILE_ID');
+  await ui().getByRole('button', { name: '기존 파일 찾기', exact: true }).click();
+  await ui().getByRole('heading', { name: '2. 우리 학교 자료 선택·확인', exact: true }).waitFor();
+  assert.equal(await ui().getByRole('button', { name: '선택한 자료 확인', exact: true }).isDisabled(), true);
+  await ui().locator(`input[name=legacy-db][value="${legacySource.getId()}"]`).check();
+  await ui().locator(`input[name=legacy-sheet][value="${legacySheet.getId()}"]`).check();
+  await ui().getByRole('heading', { name: '2. 우리 학교 자료 선택·확인', exact: true }).locator('..').screenshot({ path: `artifacts/${hosted ? 'gas-hosted' : 'gas-standalone'}-migration-select.png` });
+  await ui().getByRole('button', { name: '선택한 자료 확인', exact: true }).click();
+  await ui().getByRole('heading', { name: '3. 이 자료 사용하기', exact: true }).waitFor();
+  assert.equal(await ui().getByRole('button', { name: '이 자료 사용하기', exact: true }).isDisabled(), true);
+  await ui().getByText('연수 1개 · 서명 1개', { exact: true }).waitFor();
+  await ui().getByRole('heading', { name: '3. 이 자료 사용하기', exact: true }).locator('..').screenshot({ path: `artifacts/${hosted ? 'gas-hosted' : 'gas-standalone'}-migration-preview.png` });
+  pass('Migration UI requires explicit source and sheet selection and shows a deduplicated signature count before confirmation');
+  await ui().getByRole('checkbox', { name: '우리 학교 자료와 개수를 확인했고, 기존 앱에서의 저장을 멈췄습니다.' }).check();
+  await ui().getByRole('button', { name: '이 자료 사용하기', exact: true }).click();
+  await ui().getByRole('heading', { name: '연결 완료', exact: true }).waitFor();
+  await ui().getByRole('heading', { name: '연결 완료', exact: true }).locator('..').screenshot({ path: `artifacts/${hosted ? 'gas-hosted' : 'gas-standalone'}-migration-complete.png` });
+  assert.notEqual(migrationGas.props.get('TEACHERSIGN_DB_FILE_ID'), previousDbId);
+  assert.equal(legacySource.content, sourceText);
+  assert.equal(migrationGas.state().account.username, 'same-admin');
+  await ui().getByRole('button', { name: '연수 목록 확인', exact: true }).click();
+  await ui().getByRole('heading', { name: /가상 기존 학부모 연수/ }).waitFor();
+  pass('Migration UI backs up, verifies and connects copies while retaining original data, school account and administrator access');
+  await ui().getByRole('button', { name: '서버 연결 설정', exact: true }).click();
+  await ui().getByRole('button', { name: '기존 자료 연결', exact: true }).click();
+  await ui().getByRole('button', { name: '기존 파일 찾기', exact: true }).click();
+  await ui().getByRole('status').filter({ hasText: '이미 기존 자료를 연결했습니다.' }).waitFor();
+  assert.equal(await ui().getByRole('button', { name: '이 자료 사용하기', exact: true }).count(), 0);
+  pass('Already connected schools receive a clear completion message instead of another migration');
   await ui().getByRole('button', { name: '돌아가기', exact: true }).click();
   // The XLSX template is generated from the embedded library; no CDN request.
   const downloadPromise = page.waitForEvent('download');
@@ -114,7 +154,7 @@ try {
   await ui().locator('input[type=date]').fill('2026-10-09');
   await ui().getByRole('button', { name: '연수 등록', exact: true }).click();
   await ui().getByRole('heading', { name: 'GAS 단독 서명 시험' }).waitFor();
-  await ui().getByRole('button', { name: '링크 공유', exact: true }).first().click();
+  await ui().getByRole('heading', { name: 'GAS 단독 서명 시험' }).locator('..').locator('..').locator('..').getByRole('button', { name: '링크 공유', exact: true }).click();
   await ui().locator('img[alt=QR]').waitFor();
   const participantLink = await ui().locator('input[readonly]').inputValue();
   assert.equal(new URL(participantLink).pathname, hosted ? '/hosted' : '/school/A/exec');

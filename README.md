@@ -1,4 +1,4 @@
-# 교직원 연수 등록부 도우미 v5.2.1 · 학교 GAS와 공용 사이트
+# 교직원 연수 등록부 도우미 v5.3.0 · 학교 GAS와 공용 사이트
 
 각 학교의 **Google Apps Script와 Google Drive만으로** 설치·관리자 로그인·연수 관리·QR 서명을 제공합니다. 학교별 /exec 이용에는 별도 웹 서버·추가 DB 서비스가 필요하지 않습니다. 공용 도메인은 Cloudflare 또는 Vercel의 정적 화면에서 같은 학교 GAS에 직접 연결할 수 있습니다. 일반 교직원은 관리자 로그인 없이 학교 QR로 서명합니다.
 
@@ -6,13 +6,13 @@
 
 **[사진으로 따라 하는 교사용 매뉴얼](docs/교사용매뉴얼.md)** · [인쇄용 PDF](https://github.com/skonT151216/teachersign-improved/releases/latest/download/TeacherSign-Manual.pdf) · [오프라인 매뉴얼 ZIP](https://github.com/skonT151216/teachersign-improved/releases/latest/download/TeacherSign-Manual.zip)
 
-**기존 v4 자료 이전은 [자료 이전 6단계 · 바로 읽기](https://github.com/skonT151216/teachersign-improved/blob/main/docs/자료이전_핵심안내.md)의 여섯 단계만 따라 하세요.** 설치 ZIP의 `사진매뉴얼/자료이전_핵심안내.html`로도 볼 수 있습니다.
+**기존 v4 자료 이전은 [기존 자료 연결 3단계 · 바로 읽기](https://github.com/skonT151216/teachersign-improved/blob/main/docs/자료이전_핵심안내.md)를 참고해 최신 파일을 교체·배포한 뒤 화면에서 연결하세요.** 설치 ZIP의 `사진매뉴얼/자료이전_핵심안내.html`로도 볼 수 있습니다.
 
 새 설치, v4 자료 이전, v5 일반 업데이트, 교직원 QR 서명을 구분한 화면 안내입니다. 설치 ZIP에도 `사진매뉴얼/교사용매뉴얼.html`과 사진을 함께 넣었습니다. 압축을 모두 푼 뒤 HTML 파일을 열면 인터넷 없이 읽을 수 있습니다. 기존 v4 학교는 매뉴얼 8번 자료 이전을 먼저 확인하세요. 이전 후 수동 백업은 14번의 네 단계를 따르면 됩니다.
 
 ## 학교에 설치하기
 
-**기존 v4 학교는 새 설치만으로 자료가 연결되지 않습니다.** [자료 이전 6단계 · 바로 읽기](https://github.com/skonT151216/teachersign-improved/blob/main/docs/자료이전_핵심안내.md)의 여섯 단계를 먼저 따라 하세요. v5.2.1은 원본과 현재 파일을 보존하고, 확인한 원본의 복사본으로 연결하는 이전 도구를 제공합니다. 이미 v5 자료가 있으면 덮어쓰지 않고 중단합니다. 화면 버전은 v5.2.1, GAS 서버 버전은 v5.2.1입니다.
+**기존 v4 학교는 새 설치만으로 자료가 연결되지 않습니다.** [기존 자료 연결 3단계 · 바로 읽기](https://github.com/skonT151216/teachersign-improved/blob/main/docs/자료이전_핵심안내.md)를 참고해 최신 파일을 교체·배포한 뒤 화면에서 연결하세요. v5.3.0은 원본과 현재 파일을 보존하고, 확인한 원본의 복사본으로 연결하는 관리자 화면의 자료 연결 도구를 제공합니다. 이미 v5 자료가 있으면 덮어쓰지 않고 중단합니다. 화면 버전은 v5.3.0, GAS 서버 버전은 v5.3.0입니다.
 
 1. 설치 ZIP을 내려받아 압축을 풉니다. 학교 담당자의 Google 계정으로 [Apps Script](https://script.google.com)에서 새 프로젝트를 만듭니다.
 2. 기본 **Code.gs** 내용을 ZIP의 **Code.gs**로 교체합니다.

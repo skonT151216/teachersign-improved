@@ -72,7 +72,7 @@ test('default GAS URL serves self-contained HTML and escapes untrusted participa
   assert.equal(boot.params.sessionId, attack);
   assert.equal(boot.params.school, undefined);
   assert.ok([...html.matchAll(/<script\b([^>]*)>[\s\S]*?<\/script>/g)].every(match => !/\bsrc\s*=/.test(match[1])));
-  assert.equal(JSON.parse(gas.context.doGet({ parameter: { action: 'healthCheck' } }).getContent()).data.serverVersion, '5.2.1');
+  assert.equal(JSON.parse(gas.context.doGet({ parameter: { action: 'healthCheck' } }).getContent()).data.serverVersion, '5.3.0');
 });
 test('GAS RPC supports existing v5 account, school isolation, CSRF, logout and expiry', async () => {
   const shared = createFakeDrive(), a = createGasHarness('rpc-school-A', shared), b = createGasHarness('rpc-school-B', shared);

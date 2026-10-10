@@ -19,6 +19,11 @@ export function createFakeDrive() {
         return id;
       },
       getName: () => value.name,
+      getParents: () => {
+        const parents = value.folder ? [files.get(value.folder)] : [];
+        let index = 0;
+        return { hasNext: () => index < parents.length, next: () => parents[index++] };
+      },
       getSize: () => Buffer.byteLength(value.content),
       getLastUpdated: () => new Date(0),
       isTrashed: () => false,

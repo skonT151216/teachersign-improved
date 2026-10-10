@@ -12,6 +12,9 @@ const digest = (value) => createHash("sha256").update(value).digest("hex");
 const schoolPattern = /^[A-Za-z0-9_-]{10,200}$/;
 const adminActions = new Set([
   "getAdminSessions",
+  "findLegacyData",
+  "previewLegacyData",
+  "connectLegacyData",
   "createSession",
   "deleteSession",
   "addSignatureBatch",
@@ -93,7 +96,7 @@ export function createSchoolGateway({
   async function gas(school, operation, payload = {}) {
     const readOnly =
       ["info", "session", "connection", "account"].includes(operation) ||
-      (operation === "admin" && payload.name === "getAdminSessions") ||
+      (operation === "admin" && ["getAdminSessions", "findLegacyData"].includes(payload.name)) ||
       (operation === "participant" && payload.name === "getParticipantSession");
     for (let attempt = 1; attempt <= (readOnly ? 2 : 1); attempt++) {
       try {
@@ -109,7 +112,8 @@ export function createSchoolGateway({
   async function gasAttempt(school, operation, payload = {}) {
     if (!schoolPattern.test(school || ""))
       throw error(400, "[ERR-SCHOOL] 학교 접속 링크를 확인하세요.");
-    const timeout = AbortSignal.timeout(25_000);
+    const migration = operation === "admin" && ["findLegacyData", "previewLegacyData", "connectLegacyData"].includes(payload.name);
+    const timeout = AbortSignal.timeout(migration ? 90_000 : 25_000);
     let url = `https://script.google.com/macros/s/${school}/exec`;
     let options = {
       method: "POST",
@@ -226,6 +230,15 @@ export function createSchoolGateway({
           ],
           "FULL-01": [409, "[ERR-FULL] 참가 가능 인원을 초과했습니다."],
           RETRY: [409, "[ERR-RETRY] 요청 식별자와 내용을 확인하세요."],
+          ACTION: [400, "[ERR-ACTION] 최신 학교 GAS를 배포한 뒤 다시 시도하세요."],
+          "MIGRATION-SOURCE": [400, "[ERR-MIGRATION-SOURCE] 기존 연수·서명 파일을 확인해 선택하세요."],
+          "MIGRATION-NOT-EMPTY": [409, "[ERR-MIGRATION-NOT-EMPTY] 현재 자료가 있어 중단했습니다. 두 자료를 보존한 뒤 별도 병합이 필요합니다."],
+          "MIGRATION-DONE": [409, "[ERR-MIGRATION-DONE] 이미 자료를 연결했습니다. 연수 목록을 확인하세요."],
+          "MIGRATION-PREVIEW": [409, "[ERR-MIGRATION-PREVIEW] 확인이 만료되었거나 자료가 바뀌었습니다. 선택한 자료 확인을 다시 누르세요."],
+          "MIGRATION-COPY": [409, "[ERR-MIGRATION-COPY] 백업·복사 검증에 실패하여 기존 연결을 유지했습니다."],
+          "MIGRATION-FILE": [400, "[ERR-MIGRATION-FILE] 휴지통 여부와 파일 크기를 확인하세요."],
+          "MIGRATION-DB": [400, "[ERR-MIGRATION-DB] 기존 연수 JSON 형식을 확인하세요."],
+          "MIGRATION-SHEET": [400, "[ERR-MIGRATION-SHEET] 같은 학교의 서명 파일인지 확인하세요."],
         };
         throw error(
           ...(messages[code] || [
