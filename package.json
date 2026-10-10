@@ -16,6 +16,7 @@
     "test:browser:gas": "node tests/school-browser.mjs",
     "test:browser:deployment": "node tests/deployment-smoke.mjs",
     "build:gas": "node scripts/build-gas.mjs",
+    "build:manual": "node scripts/build-manual.mjs",
     "test:browser:standalone": "node tests/gas-standalone-browser.mjs",
     "dev:gateway": "node server/school-dev.mjs",
     "test:browser:hosted": "TEACHERSIGN_TEST_MODE=hosted node tests/gas-standalone-browser.mjs",

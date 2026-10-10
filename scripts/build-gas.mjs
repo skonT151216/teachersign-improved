@@ -1,5 +1,5 @@
 import { build } from 'vite';
-import { readFile, writeFile, mkdir } from 'node:fs/promises';
+import { readFile, writeFile, mkdir, readdir } from 'node:fs/promises';
 import { zipSync, strToU8 } from 'fflate';
 import assert from 'node:assert/strict';
 const root = new URL('../', import.meta.url);
@@ -23,6 +23,13 @@ await writeFile(new URL('gas/TeacherSignV5.gs', root), source);
 const names = ['Code.gs', 'Index.html', 'appsscript.json', '설치안내.md', 'v4자료이전.md', 'THIRD-PARTY-LICENSES.txt'];
 const files = {};
 for (const name of names) files[name] = strToU8(await readFile(new URL(`gas/standalone/${name}`, root), 'utf8'));
+// Ship the reviewed, offline screenshot guide with the school installer.
+for (const name of ['교사용매뉴얼.html', '교사용매뉴얼.md'])
+  files[`사진매뉴얼/${name}`] = strToU8(await readFile(new URL(`docs/${name}`, root), 'utf8'));
+for (const name of await readdir(new URL('docs/images/', root))) {
+  if (!/^[a-z-]+\.png$/.test(name)) continue;
+  files[`사진매뉴얼/images/${name}`] = new Uint8Array(await readFile(new URL(`docs/images/${name}`, root)));
+}
 await mkdir(new URL('artifacts/releases/', root), { recursive: true });
 await writeFile(new URL('artifacts/releases/TeacherSign-GAS.zip', root), zipSync(files, { level: 9, mtime: new Date(`${version.publishedAt}T00:00:00Z`) }));
 console.log(`GAS ${version.gasVersion}: Code.gs + Index.html (${html.length} characters), installation ZIP ready`);
