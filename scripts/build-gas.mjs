@@ -1,9 +1,11 @@
 import { build } from 'vite';
 import { readFile, writeFile, mkdir, readdir } from 'node:fs/promises';
-import { zipSync, strToU8 } from 'fflate';
+import { zipSync, unzipSync, strToU8, strFromU8 } from 'fflate';
 import assert from 'node:assert/strict';
+import { assertGasServerSyntax } from './gas-server-syntax.mjs';
 const root = new URL('../', import.meta.url);
 const source = await readFile(new URL('Code.gs', root), 'utf8');
+assertGasServerSyntax(source);
 const version = JSON.parse(await readFile(new URL('version.json', root), 'utf8'));
 assert.ok(source.includes(`const SERVER_VERSION = "${version.gasVersion}"`));
 const pkg = JSON.parse(await readFile(new URL('package.json', root), 'utf8'));
@@ -31,5 +33,7 @@ for (const name of await readdir(new URL('docs/images/', root))) {
   files[`사진매뉴얼/images/${name}`] = new Uint8Array(await readFile(new URL(`docs/images/${name}`, root)));
 }
 await mkdir(new URL('artifacts/releases/', root), { recursive: true });
-await writeFile(new URL('artifacts/releases/TeacherSign-GAS.zip', root), zipSync(files, { level: 9, mtime: new Date(`${version.publishedAt}T00:00:00Z`) }));
+const zip = zipSync(files, { level: 9, mtime: new Date(`${version.publishedAt}T00:00:00Z`) });
+assert.equal(strFromU8(unzipSync(zip)['Code.gs']), source, 'Installation ZIP must contain the tested GAS source');
+await writeFile(new URL('artifacts/releases/TeacherSign-GAS.zip', root), zip);
 console.log(`GAS ${version.gasVersion}: Code.gs + Index.html (${html.length} characters), installation ZIP ready`);

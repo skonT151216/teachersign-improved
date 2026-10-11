@@ -1,8 +1,8 @@
-// TeacherSign Google Apps Script server v5.3.0
+// TeacherSign Google Apps Script server v5.3.1
 // Install Code.gs AND Index.html from the GAS ZIP, run setupTeacherSign in the
 // Apps Script editor, then deploy the web app to execute as the installer.
 
-const SERVER_VERSION = "5.3.0";
+const SERVER_VERSION = "5.3.1";
 const DB_FILENAME = "TrainingApp_DB.json";
 const SIG_SHEET_FILENAME = "TrainingApp_Signatures";
 const SIG_SHEET_TAB = "signatures";
@@ -253,7 +253,9 @@ function assertMigrationDestinationEmpty_(value) {
 function migrationSignatureCount_(db, rows) {
   const bySession = Object.create(null);
   rows.forEach(row => {
-    (bySession[String(row[0])] ||= []).push({ staffId: row[1], timestamp: row[9] });
+    const sessionId = String(row[0]);
+    if (!bySession[sessionId]) bySession[sessionId] = [];
+    bySession[sessionId].push({ staffId: row[1], timestamp: row[9] });
   });
   return db.sessions.reduce((total, session) => total + mergeSignatures_(session.signatures, bySession[session.id], []).length, 0);
 }
