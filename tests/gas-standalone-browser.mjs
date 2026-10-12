@@ -64,6 +64,25 @@ async function login(secret = password, username = 'same-admin') {
 try {
   if (hosted) {
     await page.goto(`${fixture.base}/hosted`);
+    await ui().getByRole('heading', { name: 'Google Drive 연동 안내', exact: true }).waitFor();
+    assert.equal(await ui().getByRole('button',{name:'새 학교 처음 설치',exact:true}).getAttribute('aria-pressed'),'true');
+    assert.equal(await ui().getByRole('button',{name:'연동 방법 다시 보기',exact:true}).count(),0);
+    assert.equal(await ui().getByRole('link',{name:'이미 설치한 학교: 주소 입력으로 이동',exact:true}).getAttribute('href'),'#school-connect');
+    assert.equal(fixture.calls.length,0);
+    await ui().getByRole('button',{name:'v4.0에서 업데이트',exact:true}).click();
+    await ui().getByRole('heading',{name:'5. 기존 v4 연수·서명 연결',exact:true}).waitFor();
+    assert.ok((await ui().getByRole('region',{name:'Google Drive 연동 안내',exact:true}).innerText()).includes('기존 Apps Script 프로젝트'));
+    assert.equal(fixture.calls.length,0);
+    await ui().getByRole('button',{name:'새 학교 처음 설치',exact:true}).click();
+    await ui().getByRole('link',{name:'이미 설치한 학교: 주소 입력으로 이동',exact:true}).click();
+    assert.equal(await ui().getByLabel('학교 GAS 웹앱 주소',{exact:true}).isVisible(),true);
+    const onboardingViewport = page.viewportSize();
+    await page.setViewportSize({width:1280,height:2200});
+    await ui().getByRole('region',{name:'Google Drive 연동 안내',exact:true}).screenshot({path:'docs/images/first-connection.png'});
+    await ui().getByRole('button',{name:'v4.0에서 업데이트',exact:true}).click();
+    await ui().getByRole('region',{name:'Google Drive 연동 안내',exact:true}).screenshot({path:'docs/images/vfour-update.png'});
+    await ui().getByRole('button',{name:'새 학교 처음 설치',exact:true}).click();
+    await page.setViewportSize(onboardingViewport);
     await ui().getByLabel('학교 GAS 웹앱 주소', { exact: true }).fill('https://evil.test/exec');
     await ui().getByRole('button', { name: '학교 연결', exact: true }).click();
     await ui().getByRole('alert').waitFor();
@@ -84,11 +103,14 @@ try {
     await page.goto(schoolUrl('A'));
     await ui().getByRole('alert').filter({ hasText: '[ERR-VERSION]' }).waitFor();
     assert.equal(await ui().getByLabel('아이디', { exact: true }).count(), 0);
+    await ui().getByRole('heading',{name:'Google Drive 연동 안내',exact:true}).waitFor();
+    assert.equal(await ui().getByRole('button',{name:'v4.0에서 업데이트',exact:true}).getAttribute('aria-pressed'),'true');
     await context.unroute(endpoint('A'), incompatible);
     pass('Hosted site explains incompatible GAS versions before asking for credentials');
     await page.goto(`${fixture.base}/hosted?sessionId=missing-school`);
     await ui().getByRole('alert').filter({ hasText: '새 QR' }).waitFor();
     assert.equal(await ui().getByLabel('학교 GAS 웹앱 주소', { exact: true }).count(), 0);
+    assert.equal(await ui().getByRole('heading',{name:'Google Drive 연동 안내',exact:true}).count(),0);
     pass('A participant link without a school cannot silently select the browser saved school');
   }
   await register('A', '가상 GAS 학교 A');
