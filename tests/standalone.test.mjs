@@ -72,7 +72,7 @@ test('default GAS URL serves self-contained HTML and escapes untrusted participa
   assert.equal(boot.params.sessionId, attack);
   assert.equal(boot.params.school, undefined);
   assert.ok([...html.matchAll(/<script\b([^>]*)>[\s\S]*?<\/script>/g)].every(match => !/\bsrc\s*=/.test(match[1])));
-  assert.equal(JSON.parse(gas.context.doGet({ parameter: { action: 'healthCheck' } }).getContent()).data.serverVersion, '5.3.2');
+  assert.equal(JSON.parse(gas.context.doGet({ parameter: { action: 'healthCheck' } }).getContent()).data.serverVersion, '5.3.3');
 });
 test('GAS RPC supports existing v5 account, school isolation, CSRF, logout and expiry', async () => {
   const shared = createFakeDrive(), a = createGasHarness('rpc-school-A', shared), b = createGasHarness('rpc-school-B', shared);
@@ -95,4 +95,46 @@ test('GAS RPC supports existing v5 account, school isolation, CSRF, logout and e
   const next = await login(a);
   a.advance(30 * 60_000 + 1);
   assert.ok(a.rpc({ operation: 'session', ...next }).message.startsWith('[ERR-AUTH]'));
+});
+
+test('connection key check requires the school session and CSRF, preserves data and never returns the key', async () => {
+  const gas = createGasHarness();
+  gas.props.set('TEACHERSIGN_ADMIN_KEY', setupKey);
+  gas.rpc({ operation: 'bootstrap', setupKey, username: 'admin-school', label: '가상 학교', passwordHash: await hashPassword(password) });
+  const access = await login(gas);
+  const originalProps = [...gas.props];
+  const db = gas.shared.files.get(gas.props.get('TEACHERSIGN_DB_FILE_ID'));
+  const sheet = gas.context.getSignatureSheet_();
+  const signatureFile = gas.shared.files.get(gas.props.get('TEACHERSIGN_SIGNATURE_FILE_ID'));
+  db.content = JSON.stringify({ sessions: [{ id: 'one', participantToken: 'existing-token', signatures: [{ staffId: 'one-person', timestamp: 1 }] }] });
+  sheet.appendRow(['one', 'one-person', 'Private Person', '', '', '', '', '', 'private-signature-image', 2]);
+  const source = db.content;
+  const rows = JSON.stringify(sheet.getDataRange().getValues());
+  const account = JSON.stringify(gas.state().account);
+  const files = [...gas.shared.files.keys()];
+  for (const request of [
+    { operation: 'connectionTest', setupKey },
+    { operation: 'connectionTest', setupKey, ...access, csrf: 'bad' },
+    { operation: 'connectionTest', setupKey: 'bad', ...access },
+  ]) assert.equal(gas.rpc(request).status, 'error');
+  const response = gas.rpc({ operation: 'connectionTest', setupKey, ...access });
+  assert.equal(response.status, 'success');
+  assert.equal(response.data.sessions, 1);
+  assert.equal(response.data.signatures, 1);
+  assert.equal(response.data.database.fileId, db.getId());
+  assert.equal(response.data.signatureFile.fileId, signatureFile.getId());
+  for (const privateValue of [setupKey, 'Private Person', 'private-signature-image', 'existing-token']) assert.ok(!JSON.stringify(response).includes(privateValue));
+  assert.equal(db.content, source);
+  assert.equal(JSON.stringify(sheet.getDataRange().getValues()), rows);
+  assert.equal(JSON.stringify(gas.state().account), account);
+  assert.deepEqual([...gas.props], originalProps);
+  assert.deepEqual([...gas.shared.files.keys()], files);
+  db.content = 'broken-json';
+  assert.ok(gas.rpc({ operation: 'connectionTest', setupKey, ...access }).message.startsWith('[ERR-CONNECTION-DB]'));
+  assert.equal(db.getName(), response.data.database.name);
+  assert.equal(db.content, 'broken-json');
+  db.content = source;
+  sheet.getRange(1, 1).setValues([['bad-header']]);
+  assert.ok(gas.rpc({ operation: 'connectionTest', setupKey, ...access }).message.startsWith('[ERR-CONNECTION-SIGNATURE]'));
+  assert.equal(sheet.getRange(1, 1).getValues()[0][0], 'bad-header');
 });

@@ -1,4 +1,5 @@
 import React, { useEffect, useId, useRef, useState } from 'react';
+import { ConnectionCheck, testSchoolConnection } from '../services/managedCloudService';
 import { getGasRuntime } from '../services/gasRuntime';
 import { DOWNLOAD_URL, fetchLatestGasCode, GITHUB_URL } from '../services/updateService.mjs';
 
@@ -15,7 +16,12 @@ export default function ConnectionGuideButton({ initialMode = 'update', disabled
   </div>;
 }
 
-function ConnectionGuide({ titleId, initialMode }: { titleId: string; initialMode: Mode }) {
+export function ConnectionGuidePanel() {
+  const id = useId();
+  return <section aria-labelledby={id} className="border rounded-xl p-4 sm:p-6 bg-slate-50 space-y-5"><ConnectionGuide titleId={id} initialMode="update" authenticated /></section>;
+}
+
+function ConnectionGuide({ titleId, initialMode, authenticated = false }: { titleId: string; initialMode: Mode; authenticated?: boolean }) {
   const [mode, setMode] = useState(initialMode);
   const [code, setCode] = useState<{ version: string; source: string } | null>(null);
   const [busy, setBusy] = useState(false);
@@ -84,7 +90,7 @@ function ConnectionGuide({ titleId, initialMode }: { titleId: string; initialMod
     </section>
     <section className="space-y-2">
       <h3 className="font-bold">2. 관리자 연결키 확인</h3>
-      {mode === 'update' ? <p className="text-sm">이미 관리자 계정이 있다면 연결키를 다시 입력하지 않습니다. 기존 아이디·암호로 로그인하세요. 연결키는 Apps Script의 프로젝트 설정(톱니바퀴) → 스크립트 속성 → TEACHERSIGN_ADMIN_KEY에서 담당자가 확인할 수 있습니다.</p> : <p className="text-sm">Apps Script 상단에서 setupTeacherSign을 선택해 실행하고 필요한 권한을 승인합니다. 실행 로그에 표시된 관리자 연결키를 보관합니다. 배포 후 학교 관리자 최초 설정 화면에 이 키를 입력하고 아이디·암호를 정합니다.</p>}
+      {mode === 'update' ? <p className="text-sm">이미 관리자 계정이 있다면 기존 아이디·암호로 로그인합니다. 로그인 후 이 화면에서 연결키를 입력해 현재 연동을 확인할 수 있습니다. 연결키는 Apps Script의 프로젝트 설정(톱니바퀴) → 스크립트 속성 → TEACHERSIGN_ADMIN_KEY에서 담당자가 확인할 수 있습니다.</p> : <p className="text-sm">Apps Script 상단에서 setupTeacherSign을 선택해 실행하고 필요한 권한을 승인합니다. 실행 로그에 표시된 관리자 연결키를 보관합니다. 배포 후 학교 관리자 최초 설정 화면에 이 키를 입력하고 아이디·암호를 정합니다.</p>}
     </section>
     <section className="space-y-2">
       <h3 className="font-bold">3. 웹앱 배포</h3>
@@ -94,6 +100,7 @@ function ConnectionGuide({ titleId, initialMode }: { titleId: string; initialMod
       <h3 className="font-bold">4. 학교 주소로 접속</h3>
       <p className="text-sm">/exec 주소를 직접 열거나 공용 사이트의 학교 연결 화면에 입력합니다. 학교별 관리자 계정과 Drive 자료를 사용합니다.</p>
       {endpoint && <label className="block text-sm">현재 학교 GAS 웹앱 주소<input readOnly value={endpoint} className="w-full border rounded p-3 mt-2 bg-white text-sm" /></label>}
+      {authenticated && <SchoolConnectionCheck />}
       {mode === 'update' && <p className="text-sm">현재 자료 파일은 Apps Script의 스크립트 속성에서 TEACHERSIGN_DB_FILE_ID(연수)와 TEACHERSIGN_SIGNATURE_FILE_ID(서명)로 확인합니다. 업데이트 후 정상적으로 표시되는 자료는 다시 이전하지 않습니다.</p>}
       <div className="flex flex-wrap gap-3 text-sm">
         <a href={`${GITHUB_URL}/blob/main/docs/교사용매뉴얼.md`} target="_blank" rel="noopener noreferrer" className="text-indigo-700 underline">사진으로 보는 전체 연동 안내</a>
@@ -101,4 +108,46 @@ function ConnectionGuide({ titleId, initialMode }: { titleId: string; initialMod
       </div>
     </section>
   </>;
+}
+
+function SchoolConnectionCheck() {
+  const [key, setKey] = useState('');
+  const [result, setResult] = useState<ConnectionCheck | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const locked = useRef(false);
+  const mounted = useRef(true);
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
+  const test = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (locked.current || !key.trim()) return;
+    locked.current = true;
+    const input = key.trim();
+    setKey(''); setBusy(true); setError(''); setResult(null);
+    try {
+      const value = await testSchoolConnection(input);
+      if (mounted.current) setResult(value);
+    } catch (error) {
+      if (mounted.current) setError((error as Error).message);
+    } finally {
+      locked.current = false;
+      if (mounted.current) setBusy(false);
+    }
+  };
+  return <form onSubmit={event => void test(event)} className="space-y-3 border rounded p-4 bg-white">
+    <label className="block font-bold">학교 관리자 연결키
+      <input type="password" autoComplete="off" spellCheck={false} value={key} disabled={busy} maxLength={512} onChange={event => { setKey(event.target.value); setError(''); setResult(null); }} className="block w-full border rounded p-3 mt-2 font-normal" placeholder="TEACHERSIGN_ADMIN_KEY 값 입력" />
+    </label>
+    <p className="text-sm">현재 학교 GAS 주소에 연결키를 보내 연수·서명 파일을 확인합니다. 키는 이 확인에만 사용하며 브라우저에 저장하지 않습니다.</p>
+    <button type="submit" disabled={busy || !key.trim()} aria-busy={busy} className="bg-indigo-700 text-white rounded p-3 disabled:opacity-50">{busy ? '연동 확인 중…' : '연동 테스트 실행'}</button>
+    {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
+    {result && <div role="status" className="space-y-2 text-sm text-green-900">
+      <p className="font-bold">연동 확인 완료 · GAS v{result.serverVersion}</p>
+      <p>관리자 연결키 일치 · 연수 파일 읽기 성공 · 서명 파일 읽기 성공</p>
+      <p>연수 {result.sessions}개 · 서명 {result.signatures}건</p>
+      <p>연수 파일: <a href={`https://drive.google.com/file/d/${encodeURIComponent(result.database.fileId)}/view`} target="_blank" rel="noopener noreferrer" className="underline">{result.database.name}</a></p>
+      <p>서명 파일: <a href={`https://drive.google.com/file/d/${encodeURIComponent(result.signatureFile.fileId)}/view`} target="_blank" rel="noopener noreferrer" className="underline">{result.signatureFile.name}</a></p>
+      <p>현재 연결과 자료를 그대로 사용합니다.</p>
+    </div>}
+  </form>;
 }

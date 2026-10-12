@@ -15,7 +15,7 @@ import ProgramUpdates from "./ProgramUpdates";
 import LegacyDataConnection from "./LegacyDataConnection";
 import { getSchoolScope } from "../services/managedCloudService";
 import { getSchoolLink } from '../services/gasRuntime';
-import ConnectionGuideButton from './ConnectionGuide';
+import { ConnectionGuidePanel } from './ConnectionGuide';
 
 export default function ServerConnection({
   onSave,
@@ -156,7 +156,7 @@ export default function ServerConnection({
             <p className="text-sm text-gray-600">
               다른 학교는 첫 화면에서 자신의 GAS 주소로 접속합니다.
             </p>
-            <ConnectionGuideButton disabled={busy} />
+            <ConnectionGuidePanel />
             <div className="border rounded-xl p-4 space-y-3 bg-blue-50">
               <h3 className="font-bold">v4에서 쓰던 연수가 보이지 않나요?</h3>
               <p className="text-sm">기존 파일을 찾아 연수와 서명을 확인하고 연결할 수 있습니다. 원본은 보존합니다.</p>

@@ -65,6 +65,8 @@ export async function request<T>(path: string, body?: unknown, write = false): P
   } finally { window.clearTimeout(timer); pending.delete(controller); }
 }
 
+export interface ConnectionCheck { serverVersion: string; sessions: number; signatures: number; database: { name: string; fileId: string }; signatureFile: { name: string; fileId: string } }
+export const testSchoolConnection = (setupKey: string) => request<ConnectionCheck>('/api/admin/connection/test', { setupKey });
 export const getConnection = () => request<Connection>('/api/admin/connection', {});
 export const updateConnection = (connection: Pick<Connection, 'provider' | 'label' | 'revision' | 'setupMode'>) => request<Connection>('/api/admin/connection/update', connection);
 export const testDemoGoogle = () => request<{ simulation: true; checks: DemoCheck[] }>('/api/admin/connection/test', { fixtureId: 'google-drive-v4' });

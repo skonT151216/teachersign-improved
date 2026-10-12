@@ -84,6 +84,7 @@ export async function gasRequest(path: string, body: any, csrf: string, requestI
     const connection = await call('connection', access());
     return getGasRuntime()?.transport === 'http' ? { ...connection, participantEndpoint: getGasRuntime()!.webAppUrl } : connection;
   }
+  if (path === '/api/admin/connection/test') return call('connectionTest', { ...access(), setupKey: body.setupKey });
   if (path === '/api/admin/account') return call('account', access());
   if (path === '/api/admin/account/update') {
     const salt = await call('accountSalt', access());

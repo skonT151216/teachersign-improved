@@ -1,8 +1,8 @@
-// TeacherSign Google Apps Script server v5.3.2
+// TeacherSign Google Apps Script server v5.3.3
 // Install Code.gs AND Index.html from the GAS ZIP, run setupTeacherSign in the
 // Apps Script editor, then deploy the web app to execute as the installer.
 
-const SERVER_VERSION = "5.3.2";
+const SERVER_VERSION = "5.3.3";
 const DB_FILENAME = "TrainingApp_DB.json";
 const SIG_SHEET_FILENAME = "TrainingApp_Signatures";
 const SIG_SHEET_TAB = "signatures";
@@ -360,7 +360,7 @@ function teacherSignRpc(request) {
   try {
     if (!request || typeof request !== 'object' || Array.isArray(request) || JSON.stringify(request).length > 2000000)
       throw new Error('[ERR-JSON] 요청 형식과 크기를 확인하세요.');
-    const allowed = ['info', 'bootstrap', 'challenge', 'login', 'session', 'logout', 'connection', 'account', 'accountSalt', 'accountUpdate', 'admin', 'participant'];
+    const allowed = ['info', 'bootstrap', 'challenge', 'login', 'session', 'logout', 'connection', 'connectionTest', 'account', 'accountSalt', 'accountUpdate', 'admin', 'participant'];
     if (allowed.indexOf(request.operation) < 0) throw new Error('[ERR-ACTION] 허용되지 않는 요청입니다.');
     // No URL, school ID or function name from the caller selects a storage.
     const result = schoolGateway_(request);
@@ -392,6 +392,30 @@ function handleRequest_(e, method) {
   } catch (error) {
     return responseJSON_({ status: 'error', message: normalizeError_(error) });
   }
+}
+
+// Check only the already selected files. Never initialize, repair or migrate here.
+function inspectSchoolConnection_() {
+  let database, db, signatureFile, rows;
+  try {
+    database = schoolFile_("TEACHERSIGN_DB_FILE_ID");
+    db = readMigrationDb_(database);
+  } catch (error) {
+    throw new Error("[ERR-CONNECTION-DB] 현재 연결된 연수 파일을 읽지 못했습니다. Apps Script의 TEACHERSIGN_DB_FILE_ID와 파일 권한·JSON 형식을 확인하세요.");
+  }
+  try {
+    signatureFile = schoolFile_("TEACHERSIGN_SIGNATURE_FILE_ID");
+    rows = readMigrationRows_(signatureFile);
+  } catch (error) {
+    throw new Error("[ERR-CONNECTION-SIGNATURE] 현재 연결된 서명 파일을 읽지 못했습니다. Apps Script의 TEACHERSIGN_SIGNATURE_FILE_ID와 파일 권한·signatures 탭을 확인하세요.");
+  }
+  return {
+    serverVersion: SERVER_VERSION,
+    sessions: db.sessions.length,
+    signatures: migrationSignatureCount_(db, rows),
+    database: { name: database.getName(), fileId: database.getId() },
+    signatureFile: { name: signatureFile.getName(), fileId: signatureFile.getId() },
+  };
 }
 
 function requireAdmin_(candidate) {
@@ -1210,7 +1234,10 @@ function schoolGateway_(request) {
           revision: state.account.revision,
           participantEndpoint: "/api/participant",
         };
-      else if (op === "accountUpdate") {
+      else if (op === "connectionTest") {
+        requireAdmin_(request.setupKey);
+        data = inspectSchoolConnection_();
+      } else if (op === "accountUpdate") {
         // Current-password proof obtained separately, bound to this session and revision.
         if (
           !validVerifier_(request.passwordHash) ||
