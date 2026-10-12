@@ -13,6 +13,7 @@ const view = page => hosted ? page : page.frameLocator('iframe');
 const browser = await chromium.launch();
 const checks = [], errors = [], external = [];
 const password = 'Fictional-Standalone-Password-2026!';
+const latestGuideCode = (await readFile(new URL('../Code.gs', import.meta.url),'utf8')).replace(/const SERVER_VERSION = "[^"]+"/, 'const SERVER_VERSION = "5.4.0"');
 const nextPassword = 'New-Fictional-Standalone-Password-2026!';
 const context = await browser.newContext({ viewport: { width: 1280, height: 950 } });
 const page = await context.newPage();
@@ -22,7 +23,12 @@ async function isolate(context) {
   context.on('page', page => page.on('pageerror', e => errors.push(e.message)));
   await context.route('**/*', async route => {
     const url = new URL(route.request().url());
-    if (url.hostname === 'raw.githubusercontent.com') return route.fulfill({ contentType: 'application/json', body: JSON.stringify({ appVersion: '5.4.0', gasVersion: '5.4.0', publishedAt: '2026-10-09', notes: '가상 GAS 업데이트' }) });
+    if (url.hostname === 'raw.githubusercontent.com') {
+      assert.equal(route.request().method(),'GET');
+      assert.equal(route.request().postData(),null);
+      assert.ok(!route.request().headers().cookie && !route.request().headers()['x-csrf-token']);
+      return route.fulfill({ contentType: url.pathname.endsWith('/Code.gs') ? 'text/plain' : 'application/json', body: url.pathname.endsWith('/Code.gs') ? latestGuideCode : JSON.stringify({ appVersion: '5.4.0', gasVersion: '5.4.0', publishedAt: '2026-10-09', notes: '가상 GAS 업데이트' }) });
+    }
     if (hosted && url.hostname === 'script.google.com') {
       const id = /FixtureSchoolEndpoint([AB])\/exec$/.exec(url.pathname)?.[1];
       assert.ok(id); assert.equal(route.request().method(), 'POST');
@@ -87,11 +93,43 @@ try {
   }
   await register('A', '가상 GAS 학교 A');
   pass(hosted ? 'Hosted site opens initial account setup and then login' : 'GAS /exec in an iframe opens initial account setup and then login');
+  await ui().getByLabel('아이디',{exact:true}).fill('same-admin');
+  await ui().getByLabel('암호',{exact:true}).fill(password);
+  const guideWritesBefore = fixture.calls.filter(call => ['bootstrap','login','accountUpdate','admin'].includes(call.request.operation)).length;
+  await ui().getByRole('button',{name:'연동 방법 다시 보기',exact:true}).click();
+  await ui().getByRole('heading',{name:'Google Drive 연동 안내',exact:true}).waitFor();
+  assert.equal(await ui().getByRole('button',{name:'설치한 학교 업데이트',exact:true}).getAttribute('aria-pressed'),'true');
+  assert.equal(await ui().getByLabel('현재 학교 GAS 웹앱 주소',{exact:true}).inputValue(),hosted ? endpoint('A') : schoolUrl('A'));
+  await ui().getByRole('button',{name:'최신 Code.gs 보기',exact:true}).click();
+  await ui().getByLabel('최신 Code.gs',{exact:true}).waitFor();
+  assert.equal(await ui().getByLabel('최신 Code.gs',{exact:true}).inputValue(),latestGuideCode);
+  await ui().getByLabel('최신 Code.gs',{exact:true}).evaluate(el => Object.defineProperty(el.ownerDocument.defaultView.navigator,'clipboard',{configurable:true,value:{writeText:async text => { el.ownerDocument.defaultView.__guideCopiedCode = text; }}}));
+  await ui().getByRole('button',{name:'코드 복사',exact:true}).click();
+  await ui().getByRole('status').filter({hasText:'Code.gs를 복사했습니다.'}).waitFor();
+  assert.equal(await ui().getByLabel('최신 Code.gs',{exact:true}).evaluate(el => el.ownerDocument.defaultView.__guideCopiedCode),latestGuideCode);
+  await ui().getByRole('button',{name:'연동 안내 닫기',exact:true}).click();
+  assert.equal(await ui().getByLabel('아이디',{exact:true}).inputValue(),'same-admin');
+  assert.equal(await ui().getByLabel('암호',{exact:true}).inputValue(),password);
+  assert.equal(fixture.calls.filter(call => ['bootstrap','login','accountUpdate','admin'].includes(call.request.operation)).length,guideWritesBefore);
+  pass('Existing school login can reopen the connection guide, read/copy official code and close without resetting credentials or changing school data');
   await login();
   pass(hosted ? 'Hosted administrator logs in directly to school GAS over simple cross-origin HTTP with browser scrypt' : 'Administrator logs in through google.script.run with browser scrypt');
   const firstAccess = fixture.calls.find(call => call.id === 'A' && call.request.operation === 'connection').request;
   await ui().getByRole('button', { name: '서버 연결 설정', exact: true }).click();
   assert.equal(await ui().getByLabel('학교 접속 링크', { exact: true }).inputValue(), schoolUrl('A'));
+  await ui().getByRole('button',{name:'연동 방법 다시 보기',exact:true}).click();
+  const guide = ui().getByRole('region',{name:'Google Drive 연동 안내',exact:true});
+  await guide.getByRole('heading',{name:'2. 관리자 연결키 확인',exact:true}).waitFor();
+  assert.ok((await guide.innerText()).includes('TEACHERSIGN_ADMIN_KEY'));
+  assert.equal(await guide.getByLabel('학교 관리자 연결키',{exact:true}).count(),0);
+  assert.equal(await guide.getByRole('button',{name:'학교 관리자 계정 만들기',exact:true}).count(),0);
+  await guide.getByRole('button',{name:'새 학교 처음 설치',exact:true}).click();
+  assert.ok((await guide.innerText()).includes('setupTeacherSign'));
+  await guide.getByRole('button',{name:'설치한 학교 업데이트',exact:true}).click();
+  if (!hosted) await guide.screenshot({path:'docs/images/connection-guide.png'});
+  await ui().getByRole('button',{name:'연동 안내 닫기',exact:true}).click();
+  assert.equal(await ui().getByLabel('학교 접속 링크',{exact:true}).inputValue(),schoolUrl('A'));
+  pass('Authenticated Drive settings always expose installation/update steps and key lookup guidance without an account-reset form');
   await ui().getByRole('button', { name: '프로그램 업데이트', exact: true }).click();
   await ui().getByText('새 업데이트가 있습니다.', { exact: true }).waitFor();
   assert.equal(await ui().getByRole('link', { name: 'GAS 설치 ZIP 다운로드', exact: true }).getAttribute('href'), 'https://github.com/skonT151216/teachersign-improved/releases/latest/download/TeacherSign-GAS.zip');

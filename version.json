@@ -1,6 +1,6 @@
 {
-  "appVersion": "5.3.0",
-  "gasVersion": "5.3.1",
-  "publishedAt": "2026-10-11",
-  "notes": "GAS v5.3.1: Code.gs 256행의 ParseError를 수정했습니다. 이미 v5.3.0 Index.html을 적용했다면 Code.gs만 교체하고 기존 웹앱을 새 버전으로 배포하세요. 화면은 v5.3.0과 호환되며, 기존 연수·서명·계정·연결 설정을 유지합니다."
+  "appVersion": "5.3.2",
+  "gasVersion": "5.3.2",
+  "publishedAt": "2026-10-12",
+  "notes": "로그인 화면과 관리자 Google Drive 설정에 연동 방법 다시 보기를 복원했습니다. 최신 Code.gs 확인·복사, Index.html 다운로드, 관리자키 확인과 기존 주소 재배포 방법을 언제든 볼 수 있습니다. Code.gs와 Index.html을 함께 교체하고 기존 웹앱을 새 버전으로 배포하세요. 기존 계정과 자료 연결은 유지합니다."
 }

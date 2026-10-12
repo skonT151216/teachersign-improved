@@ -4,6 +4,7 @@ import { request, setSchoolScope } from '../services/managedCloudService';
 import { SchoolLogin } from './SchoolGate';
 import { assertCompatibleGas } from '../services/schoolEndpoint.mjs';
 import { DOWNLOAD_URL } from '../services/updateService.mjs';
+import ConnectionGuideButton from './ConnectionGuide';
 
 setSchoolScope(getGasRuntime()?.school || '');
 export default function StandaloneGate() {
@@ -26,6 +27,7 @@ export default function StandaloneGate() {
     <main className="max-w-xl mx-auto p-8 space-y-4">
       <h1 className="text-2xl font-bold">교직원 연수 등록부</h1>
       <p role={error ? 'alert' : 'status'}>{error || '학교 설치 상태 확인 중…'}</p>
+      <ConnectionGuideButton />
       {error && <>
         {error.startsWith('[ERR-VERSION]') ? <a href={DOWNLOAD_URL} className="text-indigo-700 underline">호환되는 GAS 설치 ZIP 다운로드</a> : <p>최초 설치라면 Apps Script 편집기에서 setupTeacherSign을 실행하고 권한을 승인한 뒤 새 버전으로 배포하세요.</p>}
         <button type="button" onClick={() => setRetry(value => value + 1)} className="border rounded p-3">다시 확인</button>
@@ -70,5 +72,6 @@ function SchoolRegistration({ onComplete }: { onComplete: () => void }) {
       {error && <p role="alert" className="text-red-700">{error}</p>}
       <button disabled={busy} aria-busy={busy} className="bg-indigo-700 text-white rounded p-3 w-full disabled:opacity-50">{busy ? '계정 설정 중…' : '학교 관리자 계정 만들기'}</button>
     </form>
+    <ConnectionGuideButton initialMode="install" disabled={busy} />
   </main>;
 }

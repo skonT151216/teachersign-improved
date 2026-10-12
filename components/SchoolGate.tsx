@@ -11,6 +11,7 @@ import {
 import { clearPrivateState } from "../services/storageService";
 import scriptCode from "../Code.gs?raw";
 import { getAppParams, isGasStandalone, hasGasConnection } from '../services/gasRuntime';
+import ConnectionGuideButton from './ConnectionGuide';
 
 const schoolId = (url: string) =>
   /^https:\/\/script\.google\.com\/macros\/s\/([A-Za-z0-9_-]{10,200})\/exec$/.exec(
@@ -547,6 +548,7 @@ export function SchoolLogin({ school }: { school: string }) {
               {busy ? "확인 중…" : "로그인"}
             </button>
           </form>
+          {hasGasConnection() && <ConnectionGuideButton disabled={busy} />}
           {!hasGasConnection() && <a className="text-indigo-700 underline" href={location.pathname}>
             다른 학교 접속·새 설치
           </a>}

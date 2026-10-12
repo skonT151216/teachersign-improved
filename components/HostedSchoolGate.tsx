@@ -4,6 +4,7 @@ import { clearPrivateSession, setSchoolScope } from '../services/managedCloudSer
 import { clearPrivateState } from '../services/storageService';
 import { initialSchoolEndpoint, rememberSchoolEndpoint, schoolEndpoint, SCHOOL_URL_KEY } from '../services/schoolEndpoint.mjs';
 import { GITHUB_URL, DOWNLOAD_URL } from '../services/updateService.mjs';
+import ConnectionGuideButton from './ConnectionGuide';
 
 export default function HostedSchoolGate() {
   const [endpoint, setEndpoint] = useState(() => {
@@ -62,5 +63,6 @@ export default function HostedSchoolGate() {
     </>}
     <a className="text-indigo-700 underline block" href={DOWNLOAD_URL}>GAS 설치 ZIP 다운로드</a>
     <a className="text-indigo-700 underline block" href={`${GITHUB_URL}#학교에-설치하기`} target="_blank" rel="noopener noreferrer">학교 설치 및 업데이트 안내</a>
+    {!participant && <ConnectionGuideButton initialMode="install" />}
   </main>;
 }
