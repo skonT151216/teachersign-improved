@@ -1,6 +1,6 @@
 import React, { useEffect, useId, useRef, useState } from 'react';
 import { ConnectionCheck, testSchoolConnection } from '../services/managedCloudService';
-import { getGasRuntime, changeHostedSchool } from '../services/gasRuntime';
+import { getGasRuntime, getAppParams, getSchoolProjectEditorUrl, changeHostedSchool } from '../services/gasRuntime';
 import { DOWNLOAD_URL, fetchLatestGasCode, GITHUB_URL } from '../services/updateService.mjs';
 
 type Mode = 'update' | 'install' | 'legacy';
@@ -68,6 +68,7 @@ function ConnectionGuide({ titleId, initialMode, authenticated = false, connecti
   };
   const runtime = getGasRuntime();
   const endpoint = connectionForm ? undefined : runtime?.webAppUrl;
+  const projectEditorUrl = !connectionForm && !getAppParams().has('sessionId') ? getSchoolProjectEditorUrl() : undefined;
   return <>
     <h2 id={titleId} className="text-xl font-bold">Google Drive 연동 안내</h2>
     <p className="text-sm">코드 준비, 관리자 연결키, 웹앱 배포와 학교 주소 연결 방법을 언제든 다시 확인할 수 있습니다.</p>
@@ -76,6 +77,10 @@ function ConnectionGuide({ titleId, initialMode, authenticated = false, connecti
       <button type="button" aria-pressed={mode === 'update'} onClick={() => setMode('update')} className={`border rounded p-3 ${mode === 'update' ? 'bg-indigo-700 text-white' : 'bg-white'}`}>설치한 학교 업데이트</button>
       <button type="button" aria-pressed={mode === 'install'} onClick={() => setMode('install')} className={`border rounded p-3 ${mode === 'install' ? 'bg-indigo-700 text-white' : 'bg-white'}`}>새 학교 처음 설치</button>
     </div>
+    {mode !== 'install' && projectEditorUrl && <div className="border rounded p-4 bg-white space-y-2">
+      <a href={projectEditorUrl} target="_blank" rel="noopener noreferrer" className="inline-block bg-indigo-700 text-white rounded px-4 py-3 font-bold">현재 학교 Apps Script 프로젝트 열기</a>
+      <p className="text-sm">현재 연결된 학교의 코드 편집기로 바로 이동합니다. 이 프로젝트에 접근 권한이 있는 Google 계정으로 로그인하세요. Code.gs·Index.html 수정, 관리자 연결키 확인과 배포 갱신을 여기에서 진행합니다.</p>
+    </div>}
     {mode === 'legacy' && <div className="border rounded p-4 bg-blue-50 space-y-2">
       <p className="font-bold">v4를 쓰던 학교는 기존 Apps Script 프로젝트에서 시작하세요.</p>
       <p className="text-sm">기존 Code.gs와 Drive의 연수·서명 파일을 사본이나 다운로드로 보관합니다. 아래 순서로 업데이트하고 기존 자료 연결을 마칠 때까지 새 연수·서명 입력을 잠시 멈춥니다.</p>
@@ -84,7 +89,8 @@ function ConnectionGuide({ titleId, initialMode, authenticated = false, connecti
       <h3 className="font-bold">1. Code.gs와 Index.html 준비</h3>
       <p className="text-sm">{mode !== 'install' ? '학교 담당자 계정으로 기존 Apps Script 프로젝트를 엽니다. 설치 ZIP의 Code.gs와 Index.html 전체 내용을 각각 교체하고 저장합니다.' : '학교 담당자 계정으로 Apps Script 프로젝트를 만듭니다. 설치 ZIP의 Code.gs를 붙여넣고, HTML 파일 Index를 만들어 Index.html 내용을 붙여넣은 뒤 저장합니다.'}</p>
       <div className="flex flex-wrap gap-3">
-        <a href="https://script.google.com/" target="_blank" rel="noopener noreferrer" className="text-indigo-700 underline">Apps Script 열기</a>
+        <a href={mode !== 'install' && projectEditorUrl ? projectEditorUrl : 'https://script.google.com/'} target="_blank" rel="noopener noreferrer" className="text-indigo-700 underline">{mode !== 'install' && projectEditorUrl ? '현재 학교 코드 편집기 열기' : 'Apps Script 열기'}</a>
+        {mode !== 'install' && endpoint && !projectEditorUrl && <p className="text-sm">프로젝트 바로가기 정보를 제공하지 않는 이전 서버입니다. Apps Script 목록에서 기존 학교 프로젝트를 선택하세요. 같은 ZIP의 두 파일을 교체하고 재배포하면 바로가기가 표시됩니다.</p>}
         <a href={DOWNLOAD_URL} className="text-indigo-700 underline">GAS 설치 ZIP 다운로드</a>
         <button type="button" disabled={busy} aria-busy={busy} onClick={() => void loadCode()} className="border rounded px-3 py-2 bg-white disabled:opacity-50">{busy ? '처리 중…' : '최신 Code.gs 보기'}</button>
         {code && <button type="button" disabled={busy} onClick={() => void copyCode()} className="border rounded px-3 py-2 bg-white disabled:opacity-50">코드 복사</button>}

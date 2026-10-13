@@ -1,8 +1,8 @@
-// TeacherSign Google Apps Script server v5.3.6
+// TeacherSign Google Apps Script server v5.3.7
 // Install Code.gs AND Index.html from the GAS ZIP, run setupTeacherSign in the
 // Apps Script editor, then deploy the web app to execute as the installer.
 
-const SERVER_VERSION = "5.3.6";
+const SERVER_VERSION = "5.3.7";
 const DB_FILENAME = "TrainingApp_DB.json";
 const SIG_SHEET_FILENAME = "TrainingApp_Signatures";
 const SIG_SHEET_TAB = "signatures";
@@ -346,12 +346,17 @@ function renderTeacherSign_(e) {
   const boot = JSON.stringify({
     school: ScriptApp.getScriptId(),
     webAppUrl: ScriptApp.getService().getUrl(),
+    projectEditorUrl: teacherSignProjectEditorUrl_(),
     params: params,
     serverVersion: SERVER_VERSION,
   }).replace(/</g, '\\u003c').replace(/>/g, '\\u003e').replace(/&/g, '\\u0026').replace(/\u2028/g, '\\u2028').replace(/\u2029/g, '\\u2029');
   const html = HtmlService.createHtmlOutputFromFile('Index').getContent();
   if (html.indexOf('"__TEACHERSIGN_BOOTSTRAP_JSON__"') < 0) throw new Error('Index HTML을 같은 버전으로 교체하세요.');
   return HtmlService.createHtmlOutput(html.replace('"__TEACHERSIGN_BOOTSTRAP_JSON__"', function () { return boot; })).setTitle('교직원 연수 등록부').addMetaTag('viewport', 'width=device-width, initial-scale=1');
+}
+
+function teacherSignProjectEditorUrl_() {
+  return 'https://script.google.com/home/projects/' + encodeURIComponent(ScriptApp.getScriptId()) + '/edit';
 }
 
 // This is the application RPC entry. All storage/auth helpers end in _ and
@@ -1081,6 +1086,7 @@ function schoolGateway_(request) {
       data = {
         serverVersion: SERVER_VERSION,
         apiVersion: 1,
+        projectEditorUrl: teacherSignProjectEditorUrl_(),
         migrationUi: true,
         accountConfigured: Boolean(state.account),
         label: state.account ? state.account.label : "",

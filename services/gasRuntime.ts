@@ -3,6 +3,7 @@ export interface GasRuntime {
   webAppUrl: string;
   params: Record<string, string>;
   serverVersion: string;
+  projectEditorUrl?: string;
   transport?: 'http';
 }
 declare global {
@@ -13,6 +14,10 @@ export const getGasRuntime = () => {
   return runtime && typeof runtime === 'object' && typeof runtime.school === 'string' && typeof runtime.webAppUrl === 'string' && runtime.params && typeof runtime.params === 'object' ? runtime : undefined;
 };
 export const hasGasConnection = () => Boolean(getGasRuntime());
+export const getSchoolProjectEditorUrl = () => {
+  const url = getGasRuntime()?.projectEditorUrl;
+  return typeof url === 'string' && /^https:\/\/script\.google\.com\/home\/projects\/[A-Za-z0-9_-]{1,200}\/edit$/.test(url) ? url : undefined;
+};
 export const isGasStandalone = () => Boolean(getGasRuntime() && getGasRuntime()!.transport !== 'http');
 export const getAppParams = () => getGasRuntime()
   ? new URLSearchParams(getGasRuntime()!.params)

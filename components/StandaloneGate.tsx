@@ -18,8 +18,8 @@ export default function StandaloneGate() {
     let active = true;
     if (!runtime || participant) return;
     setError(''); setLegacy(false); setConfigured(null);
-    request<{ accountConfigured: boolean; serverVersion: string; apiVersion?: number }>('/api/school/info', {})
-      .then(value => { if (!active) return; setLegacy(/^4\./.test(value.serverVersion || '')); assertCompatibleGas(value); setConfigured(value.accountConfigured); })
+    request<{ accountConfigured: boolean; serverVersion: string; apiVersion?: number; projectEditorUrl?: string }>('/api/school/info', {})
+      .then(value => { if (!active) return; setLegacy(/^4\./.test(value.serverVersion || '')); assertCompatibleGas(value); if (value.projectEditorUrl) runtime.projectEditorUrl = value.projectEditorUrl; setConfigured(value.accountConfigured); })
       .catch(e => { if (active) setError(e.message); });
     return () => { active = false; };
   }, [participant, retry, runtime]);

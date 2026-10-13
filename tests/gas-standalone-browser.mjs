@@ -147,6 +147,15 @@ try {
   await ui().getByRole('heading',{name:'Google Drive 연동 안내',exact:true}).waitFor();
   assert.equal(await ui().getByRole('button',{name:'설치한 학교 업데이트',exact:true}).getAttribute('aria-pressed'),'true');
   assert.equal(await ui().getByLabel('현재 학교 GAS 웹앱 주소',{exact:true}).inputValue(),hosted ? endpoint('A') : schoolUrl('A'));
+  const projectLink = ui().getByRole('link',{name:'현재 학교 Apps Script 프로젝트 열기',exact:true});
+  assert.equal(await projectLink.getAttribute('href'),'https://script.google.com/home/projects/standalone-school-A/edit');
+  assert.equal(await projectLink.getAttribute('target'),'_blank');
+  assert.equal(await projectLink.getAttribute('rel'),'noopener noreferrer');
+  await ui().getByRole('button',{name:'v4.0에서 업데이트',exact:true}).click();
+  assert.equal(await projectLink.isVisible(),true);
+  await ui().getByRole('button',{name:'새 학교 처음 설치',exact:true}).click();
+  assert.equal(await projectLink.count(),0);
+  await ui().getByRole('button',{name:'설치한 학교 업데이트',exact:true}).click();
   await ui().getByRole('button',{name:'최신 Code.gs 보기',exact:true}).click();
   await ui().getByLabel('최신 Code.gs',{exact:true}).waitFor();
   assert.equal(await ui().getByLabel('최신 Code.gs',{exact:true}).inputValue(),latestGuideCode);
