@@ -27,3 +27,11 @@ export function validParticipantEndpoint(value, runtime) {
   if (runtime?.transport === 'http') return Boolean(schoolEndpoint(value) && value === runtime.webAppUrl);
   return value === '/api/participant' || Boolean(runtime && value === runtime.webAppUrl);
 }
+
+// Initial public discovery never needs an administrator key in protocol v5.
+// Only this operation can translate an old-server key rejection to update help.
+export function schoolInfoCompatibilityError(operation, result) {
+  if (operation !== 'info' || result?.status !== 'error' || typeof result.message !== 'string') return '';
+  if (!/^\[(?:ERR-ACTION(?:-\d+)?|ERR-ADMIN-KEY|ERR-ADMIN-SETUP)\]/.test(result.message)) return '';
+  return '[ERR-VERSION] 학교 GAS가 현재 사이트의 설치 상태 확인 요청을 지원하지 않습니다. 기존 v4 코드 또는 이전 배포가 연결되어 있을 수 있습니다. Code.gs와 Index.html을 최신 파일로 교체·저장하고, 배포 관리에서 기존 웹앱을 새 버전으로 갱신하세요. setupTeacherSign만 다시 실행하거나 관리자키만 변경해도 해결되지 않습니다. 다른 프로젝트 주소인지도 확인하세요.';
+}

@@ -106,7 +106,24 @@ try {
     await ui().getByRole('heading',{name:'Google Drive 연동 안내',exact:true}).waitFor();
     assert.equal(await ui().getByRole('button',{name:'v4.0에서 업데이트',exact:true}).getAttribute('aria-pressed'),'true');
     await context.unroute(endpoint('A'), incompatible);
-    pass('Hosted site explains incompatible GAS versions before asking for credentials');
+    const oldKeyError = async route => {
+      if (route.request().postDataJSON().operation !== 'info') return route.fallback();
+      return route.fulfill({headers:{'Access-Control-Allow-Origin':'*'},contentType:'application/json',body:JSON.stringify({status:'error',message:'[ERR-ADMIN-KEY] 관리자 연결키가 일치하지 않습니다.'})});
+    };
+    await context.route(endpoint('A'),oldKeyError);
+    await page.goto(schoolUrl('A'));
+    await ui().getByRole('alert').filter({hasText:'[ERR-VERSION]'}).waitFor();
+    await ui().getByRole('heading',{name:'5. 기존 v4 연수·서명 연결',exact:true}).waitFor();
+    assert.equal(await ui().getByRole('button',{name:'v4.0에서 업데이트',exact:true}).getAttribute('aria-pressed'),'true');
+    assert.equal(await ui().getByLabel('학교 관리자 연결키',{exact:true}).count(),0);
+    assert.equal(await ui().getByRole('button',{name:'연동 방법 다시 보기',exact:true}).count(),0);
+    assert.equal(await ui().getByRole('button',{name:'학교 관리자 계정 만들기',exact:true}).count(),0);
+    const callsBeforeRetry=fixture.calls.length;
+    await ui().getByRole('button',{name:'다시 확인',exact:true}).click();
+    await ui().getByRole('alert').filter({hasText:'[ERR-VERSION]'}).waitFor();
+    assert.equal(fixture.calls.length,callsBeforeRetry);
+    await context.unroute(endpoint('A'),oldKeyError);
+    pass('Hosted site explains incompatible versions and real v4 initial key rejection with expanded upgrade steps, preserving normal key checks');
     await page.goto(`${fixture.base}/hosted?sessionId=missing-school`);
     await ui().getByRole('alert').filter({ hasText: '새 QR' }).waitFor();
     assert.equal(await ui().getByLabel('학교 GAS 웹앱 주소', { exact: true }).count(), 0);

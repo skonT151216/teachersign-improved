@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { schoolEndpoint, initialSchoolEndpoint, rememberSchoolEndpoint, assertCompatibleGas, validParticipantEndpoint, SCHOOL_URL_KEY } from '../services/schoolEndpoint.mjs';
+import { schoolEndpoint, initialSchoolEndpoint, rememberSchoolEndpoint, assertCompatibleGas, schoolInfoCompatibilityError, validParticipantEndpoint, SCHOOL_URL_KEY } from '../services/schoolEndpoint.mjs';
 import { createGasHarness } from './gas-harness.mjs';
 const endpoint = 'https://script.google.com/macros/s/FixtureSchoolEndpointA/exec';
 function storage(entries) {
@@ -37,4 +37,20 @@ test('hosted participant requests stay bound to the explicit selected school', (
   assert.equal(validParticipantEndpoint(endpoint.replace('EndpointA', 'EndpointB'), runtime), false);
   assert.equal(validParticipantEndpoint('/api/participant', runtime), false);
   assert.equal(validParticipantEndpoint('/api/participant', { webAppUrl: endpoint }), true);
+});
+
+test('real v4 rejects a v5 info request before action dispatch; only initial discovery shows upgrade help', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const { default: vm } = await import('node:vm');
+  const source = await readFile(new URL('../gas/legacy/TeacherSignV4.gs',import.meta.url),'utf8');
+  const context = vm.createContext({ PropertiesService:{ getScriptProperties:()=>({getProperty:()=> 'fictional-saved-v4-key'}) }, ContentService:{ createTextOutput:text=>({setMimeType:()=>({getContent:()=>text})}),MimeType:{JSON:'json'} } });
+  vm.runInContext(source,context);
+  const result=JSON.parse(context.doPost({postData:{contents:JSON.stringify({action:'schoolGateway',operation:'info',protocolVersion:1})}}).getContent());
+  assert.equal(result.status,'error');
+  assert.match(result.message,/^\[ERR-ADMIN-KEY\]/);
+  assert.match(schoolInfoCompatibilityError('info',result),/^\[ERR-VERSION\].*Code.gs.*Index.html/);
+  for (const operation of ['bootstrap','connectionTest','admin','login','participant']) assert.equal(schoolInfoCompatibilityError(operation,result),'');
+  for (const code of ['ERR-ACTION','ERR-ACTION-01','ERR-ADMIN-SETUP']) assert.match(schoolInfoCompatibilityError('info',{status:'error',message:`[${code}] old request`}),/^\[ERR-VERSION\]/);
+  for (const message of ['[ERR-GAS-NETWORK] inaccessible','[ERR-SCHOOL-SETUP] missing storage','[ERR-ADMIN-KEY-OTHER] unknown']) assert.equal(schoolInfoCompatibilityError('info',{status:'error',message}),'');
+  assert.equal(schoolInfoCompatibilityError('info',{status:'success',message:result.message}),'');
 });

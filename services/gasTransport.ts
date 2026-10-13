@@ -1,6 +1,6 @@
 import { browserPassword, digest, passwordProof, randomToken } from './browserPassword.mjs';
 import { getGasRuntime } from './gasRuntime';
-import { schoolEndpoint } from './schoolEndpoint.mjs';
+import { schoolEndpoint, schoolInfoCompatibilityError } from './schoolEndpoint.mjs';
 
 let sessionToken = '';
 export const clearGasSession = () => { sessionToken = ''; };
@@ -45,7 +45,8 @@ async function gasHttpRpc(operation: string, input: object, signal: AbortSignal)
   let result: any;
   try { result = await response.json(); }
   catch { throw new Error('[ERR-GAS-JSON] 학교 GAS가 JSON 응답을 보내지 않았습니다. 로그인 없는 공개 배포와 /exec 주소를 확인하세요.'); }
-  if (operation === 'info' && result?.message?.startsWith('[ERR-ACTION')) throw new Error('[ERR-VERSION] 학교 GAS가 기존 v4 요청 방식입니다. GitHub의 v5 설치 파일로 업데이트하세요.');
+  const compatibilityError = schoolInfoCompatibilityError(operation, result);
+  if (compatibilityError) throw new Error(compatibilityError);
   if (result?.status !== 'success') throw new Error(result?.message || '[ERR-GAS] 요청을 처리하지 못했습니다.');
   return result.data;
 }
