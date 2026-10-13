@@ -123,6 +123,14 @@ try {
     await ui().getByRole('alert').filter({hasText:'[ERR-VERSION]'}).waitFor();
     assert.equal(fixture.calls.length,callsBeforeRetry);
     await context.unroute(endpoint('A'),oldKeyError);
+    await ui().getByRole('button',{name:'연결 주소 변경',exact:true}).click();
+    assert.equal(await ui().getByLabel('학교 GAS 웹앱 주소',{exact:true}).inputValue(),'');
+    assert.equal(new URL(page.url()).search,'');
+    assert.equal(await page.evaluate(()=>localStorage.getItem('teachersign_school_url_v5')),null);
+    assert.equal(await ui().getByLabel('현재 학교 GAS 웹앱 주소',{exact:true}).count(),0);
+    await ui().getByLabel('학교 GAS 웹앱 주소',{exact:true}).fill(endpoint('A'));
+    await ui().getByRole('button',{name:'입력 주소 지우기',exact:true}).click();
+    assert.equal(await ui().getByLabel('학교 GAS 웹앱 주소',{exact:true}).inputValue(),'');
     pass('Hosted site explains incompatible versions and real v4 initial key rejection with expanded upgrade steps, preserving normal key checks');
     await page.goto(`${fixture.base}/hosted?sessionId=missing-school`);
     await ui().getByRole('alert').filter({ hasText: '새 QR' }).waitFor();
@@ -185,6 +193,27 @@ try {
     await page.setViewportSize(viewport);
   }
   assert.equal(await ui().getByLabel('학교 접속 링크',{exact:true}).inputValue(),schoolUrl('A'));
+  if(hosted) {
+    const accountBeforeChange = JSON.stringify(connectionGas.state().account);
+    const propsBeforeChange = [...connectionGas.props];
+    const dataBeforeChange = connectionGas.shared.files.get(connectionGas.props.get('TEACHERSIGN_DB_FILE_ID')).content;
+    await guide.getByRole('button',{name:'연결 주소 변경',exact:true}).click();
+    assert.equal(await ui().getByLabel('학교 GAS 웹앱 주소',{exact:true}).inputValue(),'');
+    assert.equal(await ui().getByRole('heading',{name:'관리자 대시보드',exact:true}).count(),0);
+    await page.goto(schoolUrl('A'));
+    await ui().getByRole('heading',{name:'가상 GAS 학교 A 관리자 로그인',exact:true}).waitFor();
+    await ui().getByText('연결된 학교 웹앱 주소',{exact:true}).click();
+    await ui().getByRole('button',{name:'저장된 연결 주소 삭제',exact:true}).click();
+    assert.equal(await ui().getByLabel('학교 GAS 웹앱 주소',{exact:true}).inputValue(),'');
+    await page.reload();
+    await ui().getByRole('heading',{name:'Google Drive 연동 안내',exact:true}).waitFor();
+    assert.equal(await ui().getByLabel('학교 GAS 웹앱 주소',{exact:true}).inputValue(),'');
+    assert.deepEqual([...connectionGas.props],propsBeforeChange);
+    assert.equal(JSON.stringify(connectionGas.state().account),accountBeforeChange);
+    assert.equal(connectionGas.shared.files.get(connectionGas.props.get('TEACHERSIGN_DB_FILE_ID')).content,dataBeforeChange);
+    await page.goto(schoolUrl('A')); await login();
+    await ui().getByRole('button',{name:'서버 연결 설정',exact:true}).click();
+  }
   pass('Drive tab immediately displays the complete setup, tests a masked key against the connected files, clears the key and preserves data');
   await ui().getByRole('button', { name: '프로그램 업데이트', exact: true }).click();
   await ui().getByText('새 업데이트가 있습니다.', { exact: true }).waitFor();

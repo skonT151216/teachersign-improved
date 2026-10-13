@@ -19,3 +19,8 @@ export const getAppParams = () => getGasRuntime()
   : new URLSearchParams(location.search);
 export const getAppUrl = () => isGasStandalone() ? getGasRuntime()!.webAppUrl : `${location.origin}${location.pathname}`;
 export const getSchoolLink = (school: string) => isGasStandalone() ? getGasRuntime()!.webAppUrl : getGasRuntime()?.transport === 'http' ? `${getAppUrl()}?endpoint=${encodeURIComponent(getGasRuntime()!.webAppUrl)}` : `${location.origin}${location.pathname}?school=${encodeURIComponent(school)}`;
+
+export const CHANGE_SCHOOL_EVENT = 'teachersign:change-school';
+export const changeHostedSchool = () => {
+  if (getGasRuntime()?.transport === 'http' && !getAppParams().has('sessionId')) window.dispatchEvent(new Event(CHANGE_SCHOOL_EVENT));
+};

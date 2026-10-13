@@ -1,8 +1,8 @@
-// TeacherSign Google Apps Script server v5.3.5
+// TeacherSign Google Apps Script server v5.3.6
 // Install Code.gs AND Index.html from the GAS ZIP, run setupTeacherSign in the
 // Apps Script editor, then deploy the web app to execute as the installer.
 
-const SERVER_VERSION = "5.3.5";
+const SERVER_VERSION = "5.3.6";
 const DB_FILENAME = "TrainingApp_DB.json";
 const SIG_SHEET_FILENAME = "TrainingApp_Signatures";
 const SIG_SHEET_TAB = "signatures";

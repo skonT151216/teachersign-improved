@@ -1,6 +1,6 @@
 import React, { useEffect, useId, useRef, useState } from 'react';
 import { ConnectionCheck, testSchoolConnection } from '../services/managedCloudService';
-import { getGasRuntime } from '../services/gasRuntime';
+import { getGasRuntime, changeHostedSchool } from '../services/gasRuntime';
 import { DOWNLOAD_URL, fetchLatestGasCode, GITHUB_URL } from '../services/updateService.mjs';
 
 type Mode = 'update' | 'install' | 'legacy';
@@ -66,7 +66,8 @@ function ConnectionGuide({ titleId, initialMode, authenticated = false, connecti
       if (mounted.current) setBusy(false);
     }
   };
-  const endpoint = getGasRuntime()?.webAppUrl;
+  const runtime = getGasRuntime();
+  const endpoint = connectionForm ? undefined : runtime?.webAppUrl;
   return <>
     <h2 id={titleId} className="text-xl font-bold">Google Drive 연동 안내</h2>
     <p className="text-sm">코드 준비, 관리자 연결키, 웹앱 배포와 학교 주소 연결 방법을 언제든 다시 확인할 수 있습니다.</p>
@@ -105,6 +106,10 @@ function ConnectionGuide({ titleId, initialMode, authenticated = false, connecti
       <h3 className="font-bold">4. 학교 주소로 접속</h3>
       <p className="text-sm">/exec 주소를 직접 열거나 공용 사이트의 학교 연결 화면에 입력합니다. 학교별 관리자 계정과 Drive 자료를 사용합니다.</p>
       {endpoint && <label className="block text-sm">현재 학교 GAS 웹앱 주소<input readOnly value={endpoint} className="w-full border rounded p-3 mt-2 bg-white text-sm" /></label>}
+      {endpoint && runtime?.transport === 'http' && <div className="space-y-2">
+        <button type="button" onClick={changeHostedSchool} className="border rounded px-3 py-2 bg-white text-indigo-700">연결 주소 변경</button>
+        <p className="text-sm">주소를 바꾸려면 이 버튼을 누른 뒤 새 /exec 주소를 입력하세요. 현재 로그인은 해제되고 이 브라우저의 연결 주소만 지우며 학교 자료는 유지됩니다.</p>
+      </div>}
       {mode === 'legacy' && <p className="text-sm">기존 /exec 주소를 직접 열거나 아래에 입력합니다. 관리자 최초 설정 화면이 나오면 연결키와 원하는 아이디·암호로 v5 계정을 한 번 만듭니다. 이미 v5 계정이 있으면 로그인합니다.</p>}
       {connectionForm}
       {authenticated && <SchoolConnectionCheck />}
