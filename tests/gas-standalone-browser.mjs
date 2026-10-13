@@ -33,7 +33,8 @@ async function isolate(context) {
       const id = /FixtureSchoolEndpoint([AB])\/exec$/.exec(url.pathname)?.[1];
       assert.ok(id); assert.equal(route.request().method(), 'POST');
       const input = route.request().postDataJSON();
-      assert.equal(input.action, 'schoolGateway'); assert.equal(input.protocolVersion, 1);
+      if (input.action === 'healthCheck') assert.deepEqual(input, { action: 'healthCheck' });
+      else { assert.equal(input.action, 'schoolGateway'); assert.equal(input.protocolVersion, 1); }
       assert.ok(!route.request().headers()['x-csrf-token']);
       const response = await route.fetch({ url: `${fixture.base}/http/${id}` });
       return route.fulfill({ response, headers: { ...response.headers(), 'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json' } });
@@ -64,25 +65,18 @@ async function login(secret = password, username = 'same-admin') {
 try {
   if (hosted) {
     await page.goto(`${fixture.base}/hosted`);
+    assert.equal(await ui().getByRole('heading', { name: 'Google Drive 연동 안내', exact: true }).count(), 0);
+    assert.equal(await ui().getByLabel('학교 GAS 웹앱 주소', { exact: true }).isVisible(), true);
+    assert.equal(fixture.calls.length, 0);
+    await page.screenshot({ path: 'docs/images/first-connection.png', fullPage: true });
+    await ui().getByRole('button', { name: '처음 설치 안내', exact: true }).click();
     await ui().getByRole('heading', { name: 'Google Drive 연동 안내', exact: true }).waitFor();
-    assert.equal(await ui().getByRole('button',{name:'새 학교 처음 설치',exact:true}).getAttribute('aria-pressed'),'true');
-    assert.equal(await ui().getByRole('button',{name:'연동 방법 다시 보기',exact:true}).count(),0);
-    assert.equal(await ui().getByRole('link',{name:'이미 설치한 학교: 주소 입력으로 이동',exact:true}).getAttribute('href'),'#school-connect');
-    assert.equal(fixture.calls.length,0);
-    await ui().getByRole('button',{name:'v4.0에서 업데이트',exact:true}).click();
-    await ui().getByRole('heading',{name:'5. 기존 v4 연수·서명 연결',exact:true}).waitFor();
-    assert.ok((await ui().getByRole('region',{name:'Google Drive 연동 안내',exact:true}).innerText()).includes('기존 Apps Script 프로젝트'));
-    assert.equal(fixture.calls.length,0);
-    await ui().getByRole('button',{name:'새 학교 처음 설치',exact:true}).click();
-    await ui().getByRole('link',{name:'이미 설치한 학교: 주소 입력으로 이동',exact:true}).click();
-    assert.equal(await ui().getByLabel('학교 GAS 웹앱 주소',{exact:true}).isVisible(),true);
-    const onboardingViewport = page.viewportSize();
-    await page.setViewportSize({width:1280,height:2200});
-    await ui().getByRole('region',{name:'Google Drive 연동 안내',exact:true}).screenshot({path:'docs/images/first-connection.png'});
-    await ui().getByRole('button',{name:'v4.0에서 업데이트',exact:true}).click();
-    await ui().getByRole('region',{name:'Google Drive 연동 안내',exact:true}).screenshot({path:'docs/images/vfour-update.png'});
-    await ui().getByRole('button',{name:'새 학교 처음 설치',exact:true}).click();
-    await page.setViewportSize(onboardingViewport);
+    assert.equal(await ui().getByRole('button', { name: '새 학교 처음 설치', exact: true }).getAttribute('aria-pressed'), 'true');
+    await ui().getByRole('button', { name: 'v4.0에서 업데이트', exact: true }).click();
+    await ui().getByRole('heading', { name: '5. 기존 v4 연수·서명 연결', exact: true }).waitFor();
+    assert.ok((await ui().getByRole('region', { name: 'Google Drive 연동 안내', exact: true }).innerText()).includes('기존 Apps Script 프로젝트'));
+    assert.equal(fixture.calls.length, 0);
+    await ui().getByRole('button', { name: '설치 안내 접기', exact: true }).click();
     await ui().getByLabel('학교 GAS 웹앱 주소', { exact: true }).fill('https://evil.test/exec');
     await ui().getByRole('button', { name: '학교 연결', exact: true }).click();
     await ui().getByRole('alert').waitFor();
@@ -215,7 +209,8 @@ try {
     await ui().getByRole('button',{name:'저장된 연결 주소 삭제',exact:true}).click();
     assert.equal(await ui().getByLabel('학교 GAS 웹앱 주소',{exact:true}).inputValue(),'');
     await page.reload();
-    await ui().getByRole('heading',{name:'Google Drive 연동 안내',exact:true}).waitFor();
+    await ui().getByLabel('학교 GAS 웹앱 주소',{exact:true}).waitFor();
+    assert.equal(await ui().getByRole('heading',{name:'Google Drive 연동 안내',exact:true}).count(),0);
     assert.equal(await ui().getByLabel('학교 GAS 웹앱 주소',{exact:true}).inputValue(),'');
     assert.deepEqual([...connectionGas.props],propsBeforeChange);
     assert.equal(JSON.stringify(connectionGas.state().account),accountBeforeChange);

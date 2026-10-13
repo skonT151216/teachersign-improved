@@ -11,14 +11,41 @@ export function initialSchoolEndpoint(search, storage) {
     return schoolEndpoint(storage.getItem(SCHOOL_URL_KEY)) || schoolEndpoint(JSON.parse(storage.getItem('training_app_cloud_config') || '{}').scriptUrl);
   } catch { return ''; }
 }
-export function rememberSchoolEndpoint(storage, endpoint) {
+export function rememberSchoolEndpoint(storage, endpoint, detectedMajor) {
   const url = schoolEndpoint(endpoint);
   if (!url) throw new Error('학교 GAS 웹앱의 /exec 주소를 확인하세요.');
   storage.setItem(SCHOOL_URL_KEY, url);
-  // Retain the public v4 connection while removing its obsolete stored key.
-  if (storage.getItem('training_app_cloud_config')) storage.setItem('training_app_cloud_config', JSON.stringify({ enabled: true, scriptUrl: url }));
+  // Keep a v4 school's existing key until that same deployed server positively
+  // reports v5. Selecting another school must not discard the old connection;
+  // the v4 client reads a key only when its saved endpoint matches exactly.
+  const raw = storage.getItem('training_app_cloud_config');
+  if (!raw) return;
+  let legacy;
+  try { legacy = JSON.parse(raw); } catch { legacy = {}; }
+  if (detectedMajor === 5 && schoolEndpoint(legacy?.scriptUrl) === url)
+    storage.setItem('training_app_cloud_config', JSON.stringify({ enabled: true, scriptUrl: url }));
+}
+export function classifySchoolHealth(result) {
+  if (result?.status !== 'success') {
+    throw new Error(typeof result?.message === 'string' ? result.message : '[ERR-GAS] 학교 서버의 상태를 확인하지 못했습니다.');
+  }
+  const data = result.data;
+  if (!data || typeof data !== 'object' || Array.isArray(data) || typeof data.serverVersion !== 'string' || !/^\d+\.\d+\.\d+$/.test(data.serverVersion) || typeof data.storageReady !== 'boolean')
+    throw new Error('[ERR-VERSION] 학교 서버 버전을 확인하지 못했습니다. 연결 주소와 배포 상태를 확인하세요.');
+  const major = Number(data.serverVersion.split('.')[0]);
+  if (major !== 4 && major !== 5)
+    throw new Error('[ERR-VERSION] 이 사이트가 지원하지 않는 학교 서버 버전입니다. 연결 주소와 배포 상태를 확인하세요.');
+  if (data.uiReady !== undefined && typeof data.uiReady !== 'boolean')
+    throw new Error('[ERR-VERSION] 학교 화면 파일의 상태를 확인하지 못했습니다.');
+  if (major === 5 && data.uiReady === false)
+    throw new Error('[ERR-VERSION] 학교의 Code.gs와 Index.html 버전이 맞지 않습니다. 같은 업데이트 파일로 두 파일을 교체·저장하고 기존 웹앱을 새 버전으로 배포하세요.');
+  if (!data.storageReady)
+    throw new Error('[ERR-SCHOOL-SETUP] 학교 저장소가 아직 준비되지 않았습니다. 학교 담당자가 설치와 권한 승인을 확인하세요.');
+  return { major, serverVersion: data.serverVersion };
 }
 export function assertCompatibleGas(info) {
+  if (info?.uiReady === false)
+    throw new Error('[ERR-VERSION] 학교의 Code.gs와 Index.html 버전이 맞지 않습니다. 같은 업데이트 파일로 두 파일을 교체·저장하고 기존 웹앱을 새 버전으로 배포하세요.');
   if (!info || typeof info.accountConfigured !== 'boolean' || !/^\d+\.\d+\.\d+$/.test(info.serverVersion) || (info.apiVersion === undefined ? !/^5\./.test(info.serverVersion) : info.apiVersion !== 1)) {
     throw new Error('[ERR-VERSION] 사이트와 학교 GAS의 연결 버전이 맞지 않습니다. GitHub 설치 안내에서 호환 버전을 확인하고 학교 GAS를 업데이트하세요.');
   }

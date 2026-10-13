@@ -74,7 +74,23 @@ test('default GAS URL serves self-contained HTML and escapes untrusted participa
   assert.equal(boot.params.sessionId, attack);
   assert.equal(boot.params.school, undefined);
   assert.ok([...html.matchAll(/<script\b([^>]*)>[\s\S]*?<\/script>/g)].every(match => !/\bsrc\s*=/.test(match[1])));
-  assert.equal(JSON.parse(gas.context.doGet({ parameter: { action: 'healthCheck' } }).getContent()).data.serverVersion, '5.3.7');
+  assert.equal(JSON.parse(gas.context.doGet({ parameter: { action: 'healthCheck' } }).getContent()).data.serverVersion, '5.3.8');
+});
+test('school discovery detects missing or mismatched Index without writing school data', () => {
+  const gas = createGasHarness('installed-ui-check');
+  const before = JSON.stringify([...gas.shared.files.values()].map(file => [file.id, file.content]));
+  const health = () => gas.dispatch({ action: 'healthCheck' });
+  assert.equal(health().data.uiVersion, '5.3.8');
+  assert.equal(health().data.uiReady, true);
+  const oldHtml = '<html><head><meta name="teachersign-ui-version" content="5.3.7"></head><script>"__TEACHERSIGN_BOOTSTRAP_JSON__"</script></html>';
+  gas.context.HtmlService.createHtmlOutputFromFile = () => ({ getContent: () => oldHtml });
+  assert.equal(health().data.uiReady, false);
+  assert.equal(gas.rpc({ operation: 'info' }).data.uiVersion, '5.3.7');
+  assert.throws(() => gas.context.doGet({ parameter: {} }), /ERR-VERSION/);
+  gas.context.HtmlService.createHtmlOutputFromFile = () => { throw Error('Index missing'); };
+  assert.equal(health().data.uiReady, false);
+  assert.equal(health().data.uiVersion, '');
+  assert.equal(JSON.stringify([...gas.shared.files.values()].map(file => [file.id, file.content])), before);
 });
 test('GAS RPC supports existing v5 account, school isolation, CSRF, logout and expiry', async () => {
   const shared = createFakeDrive(), a = createGasHarness('rpc-school-A', shared), b = createGasHarness('rpc-school-B', shared);

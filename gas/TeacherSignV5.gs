@@ -1,8 +1,8 @@
-// TeacherSign Google Apps Script server v5.3.7
+// TeacherSign Google Apps Script server v5.3.8
 // Install Code.gs AND Index.html from the GAS ZIP, run setupTeacherSign in the
 // Apps Script editor, then deploy the web app to execute as the installer.
 
-const SERVER_VERSION = "5.3.7";
+const SERVER_VERSION = "5.3.8";
 const DB_FILENAME = "TrainingApp_DB.json";
 const SIG_SHEET_FILENAME = "TrainingApp_Signatures";
 const SIG_SHEET_TAB = "signatures";
@@ -351,12 +351,25 @@ function renderTeacherSign_(e) {
     serverVersion: SERVER_VERSION,
   }).replace(/</g, '\\u003c').replace(/>/g, '\\u003e').replace(/&/g, '\\u0026').replace(/\u2028/g, '\\u2028').replace(/\u2029/g, '\\u2029');
   const html = HtmlService.createHtmlOutputFromFile('Index').getContent();
+  if (!teacherSignUiStatus_(html).uiReady) throw new Error('[ERR-VERSION] Code.gs와 Index.html이 같은 버전인지 확인하고 두 파일을 함께 저장·재배포하세요.');
   if (html.indexOf('"__TEACHERSIGN_BOOTSTRAP_JSON__"') < 0) throw new Error('Index HTML을 같은 버전으로 교체하세요.');
   return HtmlService.createHtmlOutput(html.replace('"__TEACHERSIGN_BOOTSTRAP_JSON__"', function () { return boot; })).setTitle('교직원 연수 등록부').addMetaTag('viewport', 'width=device-width, initial-scale=1');
 }
 
 function teacherSignProjectEditorUrl_() {
   return 'https://script.google.com/home/projects/' + encodeURIComponent(ScriptApp.getScriptId()) + '/edit';
+}
+
+// Inspect the installed HTML without initializing or changing school storage.
+function teacherSignUiStatus_(source) {
+  try {
+    const html = typeof source === 'string' ? source : HtmlService.createHtmlOutputFromFile('Index').getContent();
+    const match = /<meta name="teachersign-ui-version" content="([0-9]+\.[0-9]+\.[0-9]+)">/.exec(html);
+    const uiVersion = match ? match[1] : '';
+    return { uiVersion: uiVersion, uiReady: uiVersion === SERVER_VERSION && html.indexOf('"__TEACHERSIGN_BOOTSTRAP_JSON__"') >= 0 };
+  } catch (error) {
+    return { uiVersion: '', uiReady: false };
+  }
 }
 
 // This is the application RPC entry. All storage/auth helpers end in _ and
@@ -390,7 +403,8 @@ function handleRequest_(e, method) {
     }
     if (action === 'healthCheck') {
       const props = PropertiesService.getScriptProperties();
-      return responseJSON_({ status: 'success', data: { serverVersion: SERVER_VERSION, storageReady: Boolean(props.getProperty('TEACHERSIGN_DB_FILE_ID') && props.getProperty('TEACHERSIGN_AUTH_FILE_ID') && props.getProperty('TEACHERSIGN_SIGNATURE_FILE_ID')) } });
+      const ui = teacherSignUiStatus_();
+      return responseJSON_({ status: 'success', data: { serverVersion: SERVER_VERSION, uiVersion: ui.uiVersion, uiReady: ui.uiReady, storageReady: Boolean(props.getProperty('TEACHERSIGN_DB_FILE_ID') && props.getProperty('TEACHERSIGN_AUTH_FILE_ID') && props.getProperty('TEACHERSIGN_SIGNATURE_FILE_ID')) } });
     }
     // v5 accepts school sessions only; the bootstrap key cannot bypass login via v4 routes.
     throw new Error('[ERR-ACTION] 학교별 v5 요청 경로를 사용하세요.');
@@ -1083,8 +1097,11 @@ function schoolGateway_(request) {
     const now = Date.now();
     let data;
     if (op === "info") {
+      const ui = teacherSignUiStatus_();
       data = {
         serverVersion: SERVER_VERSION,
+        uiVersion: ui.uiVersion,
+        uiReady: ui.uiReady,
         apiVersion: 1,
         projectEditorUrl: teacherSignProjectEditorUrl_(),
         migrationUi: true,

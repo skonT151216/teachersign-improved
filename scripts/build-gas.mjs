@@ -14,6 +14,8 @@ await build({ configFile: new URL('vite.gas.config.ts', root).pathname });
 let html = await readFile(new URL('.gas-build/gas-entry.html', root), 'utf8');
 assert.ok(html.includes('/*TEACHERSIGN_BOOTSTRAP*/null'), 'Bootstrap marker missing');
 html = html.replace('/*TEACHERSIGN_BOOTSTRAP*/null', '"__TEACHERSIGN_BOOTSTRAP_JSON__"');
+assert.ok(html.includes('<head>'), 'Standalone HTML head missing');
+html = html.replace('<head>', `<head><meta name="teachersign-ui-version" content="${version.appVersion}">`);
 const scripts = [...html.matchAll(/<script\b([^>]*)>[\s\S]*?<\/script>/g)];
 assert.ok(scripts.every(match => !/\bsrc\s*=/.test(match[1])), 'Standalone HTML must embed all executable scripts');
 const tags = html.replace(/<script\b[^>]*>[\s\S]*?<\/script>/g, '');
