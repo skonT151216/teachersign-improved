@@ -2,7 +2,7 @@
 import React, { useRef, useEffect, useState } from 'react';
 
 interface SignaturePadProps {
-  onSave: (dataUrl: string) => Promise<void>;
+  onSave: (dataUrl: string) => void;
   onCancel: () => void;
   name: string;
   sessionTitles?: string[];
@@ -243,10 +243,7 @@ const SignaturePad: React.FC<SignaturePadProps> = ({ onSave, onCancel, name, ses
 
   const [showEmptyWarning, setShowEmptyWarning] = useState(false);
 
-  const savingRef = useRef(false);
-  const [saving, setSaving] = useState(false);
-  const handleSave = async () => {
-    if (savingRef.current) return;
+  const handleSave = () => {
     if (!hasDrawn) {
       setShowEmptyWarning(true);
       setTimeout(() => setShowEmptyWarning(false), 2500);
@@ -254,16 +251,13 @@ const SignaturePad: React.FC<SignaturePadProps> = ({ onSave, onCancel, name, ses
     }
     const canvas = canvasRef.current;
     if (canvas) {
-      savingRef.current = true; setSaving(true);
-      try {
-        const trimmedDataUrl = trimCanvas(canvas);
-        if (trimmedDataUrl) {
-            await onSave(trimmedDataUrl);
-        } else {
-            // Fallback also uses WebP compression
-            await onSave(canvas.toDataURL("image/webp", 0.6));
-        }
-      } finally { savingRef.current = false; setSaving(false); }
+      const trimmedDataUrl = trimCanvas(canvas);
+      if (trimmedDataUrl) {
+          onSave(trimmedDataUrl);
+      } else {
+          // Fallback also uses WebP compression
+          onSave(canvas.toDataURL("image/webp", 0.6));
+      }
     }
   };
 
@@ -344,17 +338,15 @@ const SignaturePad: React.FC<SignaturePadProps> = ({ onSave, onCancel, name, ses
           </button>
           <button 
             onClick={onCancel}
-            disabled={saving}
             className="flex-1 py-3 text-gray-600 border border-gray-300 rounded-xl font-bold hover:bg-gray-50 transition-all active:scale-95"
           >
             취소
           </button>
           <button 
             onClick={handleSave}
-            disabled={saving}
             className="flex-[2] py-3 text-white bg-blue-600 rounded-xl font-bold shadow-lg hover:bg-blue-700 transition-all active:scale-90 active:bg-blue-800"
           >
-            {saving ? '저장 중…' : '서명 완료'}
+            서명 완료
           </button>
         </div>
       </div>

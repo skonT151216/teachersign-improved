@@ -10,7 +10,6 @@ lerna-debug.log*
 node_modules
 dist
 dist-ssr
-.gas-build/
 *.local
 
 # Editor directories and files
@@ -26,12 +25,3 @@ dist-ssr
 
 # Local preview config (machine-specific)
 .claude/
-
-.teachersign-demo/
-.env*
-artifacts/
-
-.vercel/
-.vercel
-
-.wrangler

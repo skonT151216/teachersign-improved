@@ -1,56 +1,32 @@
 {
   "name": "teachersign",
   "private": true,
-  "version": "5.3.8",
+  "version": "4.0.0",
   "type": "module",
-  "homepage": "https://github.com/skonT151216/teachersign-improved",
+  "homepage": "https://skonT151216.github.io/teachersign",
   "scripts": {
-    "dev": "node server/gas-preview.mjs",
-    "build": "node scripts/build-site.mjs",
+    "dev": "vite",
+    "build": "vite build",
     "preview": "vite preview",
-    "typecheck": "tsc --noEmit",
-    "test": "node --test tests/*.test.mjs",
-    "test:browser": "node tests/browser.mjs",
-    "dev:gas": "node server/gas-preview.mjs",
-    "dev:v4": "node server/legacy-preview.mjs",
-    "dev:demo": "node server/dev.mjs",
-    "test:browser:gas": "node tests/school-browser.mjs",
-    "test:browser:deployment": "node tests/deployment-smoke.mjs",
-    "build:gas": "node scripts/build-gas.mjs",
-    "build:manual": "node scripts/build-manual.mjs",
-    "test:browser:standalone": "node tests/gas-standalone-browser.mjs",
-    "dev:gateway": "node server/school-dev.mjs",
-    "test:browser:hosted": "TEACHERSIGN_TEST_MODE=hosted node tests/gas-standalone-browser.mjs",
-    "test:browser:legacy": "node tests/legacy-hosted-browser.mjs",
-    "build:site": "node scripts/build-site.mjs"
+    "build:single": "npx cross-env SINGLE_FILE=true vite build && powershell -ExecutionPolicy ByPass -Command \"if (Test-Path dist\\index.html) { Move-Item dist\\index.html portable-teachersign.html -Force }\""
   },
   "dependencies": {
-    "@noble/hashes": "2.4.0",
     "autoprefixer": "^10.4.27",
     "esbuild": "^0.27.3",
     "html2pdf.js": "^0.14.0",
     "postcss": "^8.5.8",
-    "qrcode": "^1.5.4",
     "react": "^19.2.1",
     "react-dom": "^19.2.1",
     "tailwindcss": "^4.2.1",
-    "uuid": "^13.0.0",
-    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
+    "uuid": "^13.0.0"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.2.1",
     "@types/node": "^22.14.0",
-    "@types/qrcode": "^1.5.6",
     "@vitejs/plugin-react": "^5.0.0",
-    "agent-browser": "^0.38.2",
-    "fflate": "0.8.2",
     "gh-pages": "^6.3.0",
-    "playwright": "^1.63.0",
     "typescript": "~5.8.2",
     "vite": "^6.2.0",
     "vite-plugin-singlefile": "^2.3.0"
-  },
-  "engines": {
-    "node": "24.x"
   }
 }
